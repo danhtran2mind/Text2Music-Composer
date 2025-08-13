@@ -15,7 +15,7 @@ def load_config(config_path):
         raise
 
 def download_checkpoints(repo_id, local_dir, allow_patterns=None, ignore_patterns=None):
-    """Download checkpoints from Hugging Face Hub."""
+    """Download checkpoints from Hugging Face Hub based on allow/deny patterns."""
     os.makedirs(local_dir, exist_ok=True)
     try:
         snapshot_download(
@@ -95,9 +95,9 @@ def download_specific_checkpoint(repo_id, local_dir, checkpoint_path):
         raise
 
 def model_checkpoint_process(config, base_model_only=False, finetune_only=False):
-    """Process checkpoints for each model in the config based on selection criteria."""
+    """Process checkpoints for models in the config based on base_model status."""
     if base_model_only and finetune_only:
-        print("Error: Cannot select both --base_model_only and --finetune_only. Please choose one or neither.")
+        print("Error: Cannot select both --base_model_only and --finetune_only.")
         return
 
     for model in config:
@@ -108,7 +108,7 @@ def model_checkpoint_process(config, base_model_only=False, finetune_only=False)
         platform = model.get("platform")
         is_base_model = model.get("base_model", False)
 
-        # Skip models based on selection criteria
+        # Filter models based on base_model status
         if base_model_only and not is_base_model:
             print(f"Skipping {repo_id}: Not a base model")
             continue
@@ -120,18 +120,18 @@ def model_checkpoint_process(config, base_model_only=False, finetune_only=False)
             print(f"Unsupported platform {platform} for model {repo_id}. Skipping.")
             continue
 
-        # If allow contains a specific checkpoint file, download it directly
+        # Download specific checkpoint if allow specifies a single file
         if allow_patterns and len(allow_patterns) == 1 and not allow_patterns[0].endswith("/*"):
             download_specific_checkpoint(repo_id, local_dir, allow_patterns[0])
         else:
-            # Otherwise, download folder/files with patterns
+            # Download folder/files with allow/deny patterns
             download_checkpoints(repo_id, local_dir, allow_patterns, ignore_patterns)
             move_and_clean_checkpoints(local_dir)
         
         copy_specific_files(local_dir, local_dir)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Download, move, and copy checkpoints from Hugging Face Hub based on config.")
+    parser = argparse.ArgumentParser(description="Download checkpoints from Hugging Face Hub based on config.")
     parser.add_argument(
         "--config_path",
         type=str,
@@ -141,15 +141,29 @@ if __name__ == "__main__":
     parser.add_argument(
         "--base_model_only",
         action="store_true",
-        help="Download only base models (base_model: true in config)"
+        help="Download only checkpoints for models marked as base_model: true (e.g., ayousanz/AudioLDM-training-finetuning)"
     )
     parser.add_argument(
         "--finetune_only",
         action="store_true",
-        help="Download only finetuned models (base_model: false in config)"
+        help="Download only checkpoints for models marked as base_model: false (e.g., danhtran2mind/MusicGen-Small-MusicCaps-finetuning, danhtran2mind/AudioLDM-finetuning)"
+    )
+    parser.add_argument(
+        "--both",
+        action="store_true",
+        help="Download checkpoints for both base and finetuned models (default)"
     )
     args = parser.parse_args()
 
+    # Validate arguments
+    if sum([args.base_model_only, args.finetune_only, args.both]) > 1:
+        print("Error: Only one of --base_model_only, --finetune_only, or --both can be specified.")
+        return
+
+    # Default to both if no specific filter is provided
+    if not args.base_model_only and not args.finetune_only and not args.both:
+        args.both = True
+
     # Load and process the configuration
     config = load_config(args.config_path)
-    model_checkpoint_process(config, args.base_model_only, args.finetune_only)
+    model_checkpoint_process(config, base_model_only=args.base_model_only, finetune_only=args.finetune_only)
