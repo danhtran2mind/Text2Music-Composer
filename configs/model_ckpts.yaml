@@ -1,0 +1,24 @@
+- model_id: "danhtran2mind/MusicGen-Small-MusicCaps-finetuning"
+  local_dir: "ckpts/MusicGen-Small-MusicCaps-finetuning"
+  deny:
+    - "checkpoint-*"
+    - "notebooks/*"
+  base_model: false
+  platform: "HuggingFace"
+
+- model_id: "danhtran2mind/AudioLDM-finetuning"
+  local_dir: "ckpts/AudioLDM-finetuning/log/"
+  allow:
+    - "latent_diffusion/my_configs/audioldm_original/checkpoints/checkpoint-fad-133.00-global_step=799999.ckpt"
+  base_model: false
+  platform: "HuggingFace"
+
+- model_id: "ayousanz/AudioLDM-training-finetuning"
+  local_dir: "ckpts/AudioLDM/"
+  base_model: true
+  platform: "HuggingFace"
+
+- model_id: "https://huggingface.co/facebook/musicgen-small"
+  local_dir: "ckpts/musicgen-small/"
+  base_model: true
+  platform: "HuggingFace"
