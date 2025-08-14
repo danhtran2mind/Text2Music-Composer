@@ -188,7 +188,9 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False)
         logger.error(f"Pipeline execution failed: {e}")
         raise
 
-def train_model(model_id: str, dataset_name: str, third_party_dir: str, checkpoint_dir: str, dataset_dir: str, preset_name: str, output_model_dir: str) -> None:
+def train_model(preset_name: str, model_id: str, dataset_name: str, 
+                third_party_dir: str, checkpoint_dir: str, 
+                dataset_dir: str, output_model_dir: str) -> None:
     """
     Train a model using the specified dataset and third-party training script.
 
@@ -265,12 +267,15 @@ def train_model(model_id: str, dataset_name: str, third_party_dir: str, checkpoi
             ]
         elif preset_name == 'MusicGen-Small-MusicCaps-finetuning':
             if model_id != 'ayousanz/AudioLDM-training-finetuning':
-                logger.error(f"Preset {preset_name} expects model ayousanz/AudioLDM-training-finetuning, got {model_id}")
+                logger.error((f"Preset {preset_name} expects model "
+                              "ayousanz/AudioLDM-training-finetuning, got {model_id}"))
+                
                 raise ValueError(f"Invalid model for preset {preset_name}")
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             train_cmd = [
                 'python', os.path.join(third_party_dir, 'src', 'audioldm', 'train.py'),
-                '--config_yaml', os.path.join('configs', 'AudioLDM_training_configs', 'audioldm_original.yaml'),
+                '--config_yaml', os.path.join('configs', 'AudioLDM_training_configs', 
+                                              'audioldm_original.yaml'),
                 '--reload_from_ckpt', os.path.join(checkpoint_dir, 'audioldm-s-full.ckpt'),
                 '--wandb_off',
                 '--accelerator', device,
@@ -394,7 +399,8 @@ def main():
         third_party_dir = os.path.join('src', 'third_party', clone_dir)
 
         # Train the model
-        train_model(model_id, dataset_name, third_party_dir, checkpoint_dir, dataset_dir, preset_name, output_model_dir)
+        train_model(preset_name, model_id, dataset_name, third_party_dir, 
+                    checkpoint_dir, dataset_dir, output_model_dir)
         logger.info(f"Completed training for {model_id} with preset {preset_name}")
 
 if __name__ == "__main__":

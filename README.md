@@ -29,6 +29,10 @@ pip install -r requirements/requirements_inference.txt
         --dataset_id "<huggingface_dataset_id>"
         --huggingface_token "<your_huggingface_token>"
 ```
+```bash
+python scripts/process_dataset.py
+```
+
 More detail you can read at [Download Dataset](docs/scripts/download_dataset_doc.md).
 
 #### Download Model checkpoints
@@ -57,6 +61,19 @@ More detail you can read at [Download Model Checkpoints](docs/scripts/download_m
 
 
 
+
+## Training
+
+#### musicgen-small-musiccaps-finetuning-training
+You can replace `--model_name_or_path "./ckpts/musicgen-small"` such as: 
+- From Direct `Model ID`: `--model_name_or_path  "facebook/musicgen-small"`
+- From Base Model:
+    ```markdown
+        --model_name_or_path  "./ckpts/MusicGaen-Small-MusicCaps-finetuning" \
+        --is_resume_from_checkpoint false \
+    ```
+- From previous checkpoint:
+    `--model_name_or_path  "./ckpts/MusicGen-Small-MusicCaps-finetuning"`
 
 
 Audio-finetuning
