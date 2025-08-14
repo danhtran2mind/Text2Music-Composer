@@ -1,8 +1,7 @@
 # MusicGen-Small-MusicCaps
-# # Without using
-# !python dreambooth_musicgen.py \
-#     --model_name_or_path "./ckpts/facebook-musicgen-small" \
-#     --dataset_name "CLAPv2-MusicCaps" \
+# !python src/third_party/musicgen-dreamboothing/dreambooth_musicgen.py \
+#     --model_name_or_path "./ckpts/musicgen-small" \
+#     --dataset_name "data/CLAPv2-MusicCaps" \
 #     --dataset_config_name "default" \
 #     --target_audio_column_name "audio" \
 #     --text_column_name "caption" \
@@ -40,14 +39,363 @@
 #     --save_total_limit 1 \
 #     --report_to none
 
-
 # AudioLDM
-!python scripts/dl_audioldm_ckpts.py
-!python scripts/process_musicbench.py
+
+# device = "cuda" if torch.is available else "cpu"
+# !python src/third_party/Text2Audio-AudioLDM/src/audioldm/train.py \
+#     --config_yaml configs/AudioLDM_training_configs/audioldm_original.yaml \
+#     --reload_from_ckpt ckpts/AudioLDM/audioldm-s-full.ckpt \
+#     --wandb_off --accelerator "$device"
 
 
-device = "cuda" if torch.is available else "cpu"
-!python src/audioldm/train.py \
-    --config_yaml configs/AudioLDM_training_configs/audioldm_original.yaml \
-    --reload_from_ckpt ckpts/AudioLDM/audioldm-s-full.ckpt \
-    --wandb_off --accelerator "$device"
+# !python scripts/dl_audioldm_ckpts.py
+# !python scripts/process_musicbench.py
+
+
+# device = "cuda" if torch.is available else "cpu"
+# !python src/audioldm/train.py \
+#     --config_yaml configs/AudioLDM_training_configs/audioldm_original.yaml \
+#     --reload_from_ckpt ckpts/AudioLDM/audioldm-s-full.ckpt \
+#     --wandb_off --accelerator "$device"
+
+
+import os
+import subprocess
+import argparse
+import yaml
+import logging
+import torch
+from typing import Dict, List, Optional
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+def load_yaml_config(config_path: str) -> List[Dict[str, any]]:
+    """
+    Load a YAML configuration file.
+
+    Args:
+        config_path (str): Path to the YAML file.
+
+    Returns:
+        List[Dict[str, any]]: List of configuration dictionaries.
+
+    Raises:
+        FileNotFoundError: If the configuration file is not found.
+        yaml.YAMLError: If there is an error parsing the YAML file.
+    """
+    try:
+        with open(config_path, 'r') as file:
+            return yaml.safe_load(file) or []
+    except FileNotFoundError:
+        logger.error(f"Configuration file {config_path} not found")
+        raise
+    except yaml.YAMLError as e:
+        logger.error(f"Error parsing YAML file {config_path}: {e}")
+        raise
+
+def get_dataset_local_dir(dataset_name: str, datasets_config: List[Dict[str, str]]) -> Optional[str]:
+    """
+    Retrieve the local directory for a dataset from datasets_info.yaml.
+
+    Args:
+        dataset_name (str): Name of the dataset (e.g., CLAPv2/MusicCaps).
+        datasets_config (List[Dict[str, str]]): Dataset configurations.
+
+    Returns:
+        Optional[str]: Local directory path or None if not found.
+    """
+    for dataset in datasets_config:
+        if dataset['dataset_name'] == dataset_name:
+            return dataset['local_dir']
+    logger.warning(f"Dataset {dataset_name} not found in datasets_info.yaml")
+    return None
+
+def get_checkpoint_info(model_id: str, ckpts_config: List[Dict[str, any]]) -> Optional[Dict[str, any]]:
+    """
+    Retrieve checkpoint information for a model from model_ckpts.yaml.
+
+    Args:
+        model_id (str): Model identifier.
+        ckpts_config (List[Dict[str, any]]): Checkpoint configurations.
+
+    Returns:
+        Optional[Dict[str, any]]: Checkpoint configuration or None if not found.
+    """
+    for ckpt in ckpts_config:
+        if ckpt['model_id'] == model_id:
+            return ckpt
+    logger.warning(f"Model {model_id} not found in model_ckpts.yaml")
+    return None
+
+def run_pipeline_script(script_path: str, args: List[str] = None) -> None:
+    """
+    Execute a script as a subprocess with optional arguments.
+
+    Args:
+        script_path (str): Path to the script to execute.
+        args (List[str], optional): List of command-line arguments.
+
+    Raises:
+        subprocess.CalledProcessError: If the script execution fails.
+    """
+    try:
+        cmd = ['python', script_path]
+        if args:
+            cmd.extend(args)
+        subprocess.run(cmd, check=True)
+        logger.info(f"Successfully executed {script_path}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to execute {script_path}: {e}")
+        raise
+
+def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False) -> None:
+    """
+    Execute the prerequisite pipeline scripts in sequence.
+
+    Args:
+        base_model_only (bool): If True, download only base model checkpoints.
+        finetune_only (bool): If True, download only fine-tuned model checkpoints.
+
+    Raises:
+        ValueError: If both base_model_only and finetune_only are True.
+        Exception: For other execution errors.
+    """
+    if base_model_only and finetune_only:
+        logger.error("Cannot specify both --base_model_only and --finetune_only")
+        raise ValueError("Only one of --base_model_only or --finetune_only can be specified")
+
+    try:
+        # Step 1: Run setup_third_party.py
+        run_pipeline_script(os.path.join('scripts', 'setup_third_party.py'))
+
+        # Step 2: Run download_datasets.py
+        run_pipeline_script(os.path.join('scripts', 'download_datasets.py'))
+
+        # Step 3: Run process_dataset.py
+        run_pipeline_script(os.path.join('scripts', 'process_dataset.py'))
+
+        # Step 4: Run download_ckpts.py
+        ckpt_args = []
+        if base_model_only:
+            ckpt_args.append('--base_model_only')
+        elif finetune_only:
+            ckpt_args.append('--finetune_only')
+        run_pipeline_script(os.path.join('scripts', 'download_ckpts.py'), ckpt_args)
+
+    except Exception as e:
+        logger.error(f"Pipeline execution failed: {e}")
+        raise
+
+def train_model(model_id: str, dataset_name: str, third_party_dir: str, checkpoint_dir: str, dataset_dir: str, preset_name: str, output_model_dir: str) -> None:
+    """
+    Train a model using the specified dataset and third-party training script.
+
+    Args:
+        model_id (str): Identifier of the model to train.
+        dataset_name (str): Dataset to use for training (e.g., CLAPv2/MusicCaps).
+        third_party_dir (str): Directory of the cloned third-party repository.
+        checkpoint_dir (str): Directory containing model checkpoints.
+        dataset_dir (str): Directory containing processed dataset (e.g., CLAPv2-MusicCaps).
+        preset_name (str): Name of the training preset.
+        output_model_dir (str): Directory to save the trained model.
+
+    Raises:
+        FileNotFoundError: If required paths do not exist.
+        subprocess.CalledProcessError: If the training command fails.
+        ValueError: If the preset or model is unsupported.
+    """
+    try:
+        # Construct dataset path
+        dataset_path = os.path.join('data', dataset_dir, 'audioset')
+        if not os.path.exists(dataset_path):
+            logger.error(f"Dataset path {dataset_path} does not exist")
+            raise FileNotFoundError(f"Dataset path {dataset_path} not found")
+
+        if not os.path.exists(checkpoint_dir):
+            logger.error(f"Checkpoint directory {checkpoint_dir} does not exist")
+            raise FileNotFoundError(f"Checkpoint directory {checkpoint_dir} not found")
+
+        # Define training command based on preset_name
+        if preset_name == 'AudioLDM-finetuning':
+            if model_id != 'facebook/musicgen-small':
+                logger.error(f"Preset {preset_name} expects model facebook/musicgen-small, got {model_id}")
+                raise ValueError(f"Invalid model for preset {preset_name}")
+            train_cmd = [
+                'python', os.path.join(third_party_dir, 'dreambooth_musicgen.py'),
+                '--model_name_or_path', checkpoint_dir,
+                '--dataset_name', dataset_path,
+                '--dataset_config_name', 'default',
+                '--target_audio_column_name', 'audio',
+                '--text_column_name', 'caption',
+                '--train_split_name', 'train',
+                '--eval_split_name', 'train',
+                '--output_dir', output_model_dir,
+                '--do_train',
+                '--fp16',
+                '--num_train_epochs', '700',
+                '--gradient_accumulation_steps', '8',
+                '--gradient_checkpointing',
+                '--per_device_train_batch_size', '16',
+                '--learning_rate', '1e-5',
+                '--adam_beta1', '0.9',
+                '--adam_beta2', '0.99',
+                '--weight_decay', '0.1',
+                '--guidance_scale', '3.0',
+                '--do_eval',
+                '--predict_with_generate',
+                '--include_inputs_for_metrics',
+                '--eval_steps', '25',
+                '--per_device_eval_batch_size', '8',
+                '--max_eval_samples', '64',
+                '--generation_max_length', '400',
+                '--dataloader_num_workers', '8',
+                '--logging_steps', '1',
+                '--max_duration_in_seconds', '30',
+                '--min_duration_in_seconds', '1.0',
+                '--preprocessing_num_workers', '4',
+                '--pad_token_id', '2048',
+                '--decoder_start_token_id', '2048',
+                '--seed', '456',
+                '--overwrite_output_dir',
+                '--push_to_hub', 'false',
+                '--save_total_limit', '1',
+                '--report_to', 'none'
+            ]
+        elif preset_name == 'MusicGen-Small-MusicCaps-finetuning':
+            if model_id != 'ayousanz/AudioLDM-training-finetuning':
+                logger.error(f"Preset {preset_name} expects model ayousanz/AudioLDM-training-finetuning, got {model_id}")
+                raise ValueError(f"Invalid model for preset {preset_name}")
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            train_cmd = [
+                'python', os.path.join(third_party_dir, 'src', 'audioldm', 'train.py'),
+                '--config_yaml', os.path.join('configs', 'AudioLDM_training_configs', 'audioldm_original.yaml'),
+                '--reload_from_ckpt', os.path.join(checkpoint_dir, 'audioldm-s-full.ckpt'),
+                '--wandb_off',
+                '--accelerator', device,
+                '--output_dir', output_model_dir
+            ]
+        else:
+            logger.error(f"Unsupported preset_name: {preset_name}")
+            raise ValueError(f"No training command defined for preset {preset_name}")
+
+        # Execute training command
+        logger.info(f"Training {model_id} with dataset {dataset_name} for preset {preset_name} at {dataset_path}, output to {output_model_dir}")
+        subprocess.run(train_cmd, check=True)
+        logger.info(f"Completed training for {model_id} with preset {preset_name}")
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Training failed for {model_id} with preset {preset_name}: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error training {model_id} with preset {preset_name}: {e}")
+        raise
+
+def main():
+    """
+    Main function to execute the pipeline and train models based on training presets.
+
+    Raises:
+        Exception: For configuration, pipeline, or training errors.
+    """
+    parser = argparse.ArgumentParser(description="Train text-to-music models based on training presets.")
+    parser.add_argument(
+        '--config_path',
+        type=str,
+        default=os.path.join('configs', 'training_presets.yaml'),
+        help='Path to the training presets YAML configuration file'
+    )
+    parser.add_argument(
+        '--preset_name',
+        type=str,
+        default=None,
+        help='Name of the specific preset to train (e.g., AudioLDM-finetuning, MusicGen-Small-MusicCaps-finetuning). If not provided, train all presets.'
+    )
+    parser.add_argument(
+        '--base_model_only',
+        action='store_true',
+        help='Download and train only base models (e.g., facebook/musicgen-small, ayousanz/AudioLDM-training-finetuning)'
+    )
+    parser.add_argument(
+        '--finetune_only',
+        action='store_true',
+        help='Download and train only fine-tuned models (e.g., danhtran2mind/MusicGen-Small-MusicCaps-finetuning, danhtran2mind/AudioLDM-finetuning)'
+    )
+    parser.add_argument(
+        '--both',
+        action='store_true',
+        help='Download and train both base and fine-tuned models (default)'
+    )
+    args = parser.parse_args()
+
+    # Validate arguments
+    if sum([args.base_model_only, args.finetune_only, args.both]) > 1:
+        logger.error("Only one of --base_model_only, --finetune_only, or --both can be specified")
+        raise ValueError("Only one of --base_model_only, --finetune_only, or --both can be specified")
+
+    # Default to both if no specific filter is provided
+    if not args.base_model_only and not args.finetune_only and not args.both:
+        args.both = True
+
+    # Load configurations
+    training_config = load_yaml_config(args.config_path)
+    datasets_config = load_yaml_config(os.path.join('configs', 'datasets_info.yaml'))
+    ckpts_config = load_yaml_config(os.path.join('configs', 'model_ckpts.yaml'))
+
+    # Filter presets if --preset_name is provided
+    if args.preset_name:
+        training_config = [preset for preset in training_config if preset.get('preset_name') == args.preset_name]
+        if not training_config:
+            logger.error(f"No preset found with name {args.preset_name}")
+            raise ValueError(f"Preset {args.preset_name} not found in {args.config_path}")
+
+    # Execute the pipeline
+    execute_pipeline(base_model_only=args.base_model_only, finetune_only=args.finetune_only)
+
+    # Process each training preset
+    for preset in training_config:
+        preset_name = preset.get('preset_name')
+        model_id = preset.get('model_id')
+        dataset_name = preset.get('dataset')
+        third_party_repo = preset.get('third_party')
+        output_model_dir = preset.get('output_model_dir')
+
+        # Skip if preset is incomplete
+        if not all([preset_name, model_id, dataset_name, third_party_repo, output_model_dir]):
+            logger.warning(f"Skipping incomplete preset: {preset}")
+            continue
+
+        # Get checkpoint information
+        ckpt_info = get_checkpoint_info(model_id, ckpts_config)
+        if not ckpt_info:
+            logger.warning(f"Skipping {model_id} for preset {preset_name}: No checkpoint information found")
+            continue
+
+        is_base_model = ckpt_info.get('base_model', False)
+        checkpoint_dir = ckpt_info.get('local_dir')
+
+        # Filter models based on command-line arguments
+        if args.base_model_only and not is_base_model:
+            logger.info(f"Skipping {model_id} for preset {preset_name}: Not a base model")
+            continue
+        if args.finetune_only and is_base_model:
+            logger.info(f"Skipping {model_id} for preset {preset_name}: Not a fine-tuned model")
+            continue
+
+        # Get dataset local directory
+        dataset_dir = get_dataset_local_dir(dataset_name, datasets_config)
+        if not dataset_dir:
+            logger.warning(f"Skipping {model_id} for preset {preset_name}: Dataset {dataset_name} local directory not found")
+            continue
+
+        # Derive third-party directory
+        clone_dir = os.path.basename(third_party_repo).replace('.git', '')
+        third_party_dir = os.path.join('src', 'third_party', clone_dir)
+
+        # Train the model
+        train_model(model_id, dataset_name, third_party_dir, checkpoint_dir, dataset_dir, preset_name, output_model_dir)
+        logger.info(f"Completed training for {model_id} with preset {preset_name}")
+
+if __name__ == "__main__":
+    main()
