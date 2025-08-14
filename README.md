@@ -23,6 +23,14 @@ pip install -r requirements/requirements_inference.txt
 ```
 ### Script-Driven Setup
 
+#### Download Dataset
+```bash
+    python scripts/download_datasets.py \
+        --dataset_id "<huggingface_dataset_id>"
+        --huggingface_token "<your_huggingface_token>"
+```
+More detail you can read at [Download Dataset](docs/scripts/download_dataset_doc.md).
+
 #### Download Model checkpoints
 
 - Download only model checkpoint for Inference
@@ -46,13 +54,7 @@ More detail you can read at [Download Model Checkpoints](docs/scripts/download_m
     python scripts/setup_third_party.py
 ```
 
-#### Download Dataset
-```bash
-    python scripts/download_datasets.py \
-        --dataset_id "<huggingface_dataset_id>"
-        --huggingface_token "<your_huggingface_token>"
-```
-More detail you can read at [Download Dataset](docs/scripts/download_dataset_doc.md).
+
 
 
 

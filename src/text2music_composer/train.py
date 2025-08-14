@@ -1,3 +1,4 @@
+# MusicGen-Small-MusicCaps
 # # Without using
 # !python dreambooth_musicgen.py \
 #     --model_name_or_path "./ckpts/facebook-musicgen-small" \
@@ -40,9 +41,13 @@
 #     --report_to none
 
 
+# AudioLDM
+!python scripts/dl_audioldm_ckpts.py
+!python scripts/process_musicbench.py
+
 
 device = "cuda" if torch.is available else "cpu"
 !python src/audioldm/train.py \
-    --config_yaml configs/my_configs/audioldm_original.yaml \
+    --config_yaml configs/AudioLDM_training_configs/audioldm_original.yaml \
     --reload_from_ckpt ckpts/AudioLDM/audioldm-s-full.ckpt \
     --wandb_off --accelerator "$device"

@@ -13,4 +13,6 @@ wandb>=0.19.9
 evaluate>=0.4.3
 torchaudio>=2.6.0
 soundfile>=0.13.1
+datasets>=3.5.0
+tenacity>=9.1.2
 wget

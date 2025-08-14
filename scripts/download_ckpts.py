@@ -4,6 +4,7 @@ import os
 import shutil
 import argparse
 from huggingface_hub import snapshot_download, hf_hub_download
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 def load_config(config_path):
     """Load the YAML configuration file."""
@@ -15,27 +16,20 @@ def load_config(config_path):
         print(f"Error loading config file {config_path}: {e}")
         raise
 
-def download_checkpoints(repo_id, local_dir, allow_patterns=None, ignore_patterns=None):
-    os.makedirs(local_dir, exist_ok=True)
-    try:
-        snapshot_download(
-            repo_id=repo_id,
-            local_dir=local_dir,
-            repo_type="model",
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
-            max_retries=3,  # Add retries
-            timeout=600.0   # Set timeout to 10 minutes
-        )
-        print(f"Successfully downloaded checkpoints from {repo_id} to {local_dir}")
-    except Exception as e:
-        print(f"Error downloading checkpoints from {repo_id}: {e}")
-        raise
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+def download_checkpoints(repo_id, local_dir, allow_patterns, ignore_patterns):
+    return snapshot_download(
+        repo_id=repo_id,
+        local_dir=local_dir,
+        repo_type="model",
+        allow_patterns=allow_patterns,
+        ignore_patterns=ignore_patterns
+    )
 
 def move_and_clean_checkpoints(local_dir, move_back_level=0):
     """Move files from checkpoints folder to local_dir and remove the empty folder."""
     source_dir = os.path.join(local_dir, "checkpoints")
-    dest_dir = local_dir
+    dest_dir = source_dir
 
     if move_back_level > 0:
         # Move up the directory tree by move_back_level
@@ -44,6 +38,10 @@ def move_and_clean_checkpoints(local_dir, move_back_level=0):
 
     if not os.path.exists(source_dir):
         print(f"Source directory {source_dir} does not exist. Check if checkpoints were downloaded.")
+        return
+
+    if move_back_level == 0:
+        print(f"Keeping files in {source_dir} as move_back_level is 0.")
         return
 
     try:
@@ -58,33 +56,36 @@ def move_and_clean_checkpoints(local_dir, move_back_level=0):
             print(f"Moved {item} to {dest_dir}")
         
         # Remove the empty checkpoints directory
-        os.rmdir(source_dir)
+        shutil.rmtree(source_dir)
         print(f"Removed empty directory: {source_dir}")
     except Exception as e:
         print(f"Error moving files or removing directory: {e}")
         raise
 
-def copy_specific_files(source_dir, dest_dir="./ckpts"):
+def copy_specific_files(source_dir, dest_dir, specific_file=None, dest_specific_file_paths=None):
     """Copy specific files to the destination directory."""
-    os.makedirs(dest_dir, exist_ok=True)
-    files_to_copy = [
-        "clap_music_speech_audioset_epoch_15_esc_89.98.pt",
-        "hifigan_16k_64bins.json",
-        "hifigan_16k_64bins.ckpt"
-    ]
+    if not specific_file:
+        print(f"No specific files specified for copying to {dest_dir}. Skipping.")
+        return
+
+    # Use dest_specific_file_paths if provided, otherwise fall back to dest_dir
+    target_dir = dest_specific_file_paths if dest_specific_file_paths else dest_dir
+    os.makedirs(target_dir, exist_ok=True)
 
     try:
-        for file in files_to_copy:
-            source_path = os.path.join(source_dir, file)
-            dest_path = os.path.join(dest_dir, file)
+        for file_name in specific_file:
+            # Construct source path by joining source_dir with the filename
+            source_path = os.path.join(source_dir, file_name)
+            # Destination path uses only the filename
+            dest_path = os.path.join(target_dir, file_name)
             if not os.path.exists(source_path):
                 print(f"Source file {source_path} does not exist. Skipping.")
                 continue
             if os.path.exists(dest_path):
-                print(f"Skipping {file}: already exists in {dest_dir}")
+                print(f"Skipping {file_name}: already exists in {target_dir}")
                 continue
             shutil.copy(source_path, dest_path)
-            print(f"Copied {file} to {dest_dir}")
+            print(f"Copied {file_name} to {target_dir}")
     except Exception as e:
         print(f"Error copying files: {e}")
         raise
@@ -117,6 +118,8 @@ def model_checkpoint_process(config, base_model_only=False, finetune_only=False)
         platform = model.get("platform")
         is_base_model = model.get("base_model", False)
         move_back_level = model.get("move_back_level", 0)
+        specific_file = model.get("specific_file", None)
+        dest_specific_file_paths = model.get("dest_specific_file_paths", None)
 
         # Filter models based on base_model status
         if base_model_only and not is_base_model:
@@ -138,7 +141,8 @@ def model_checkpoint_process(config, base_model_only=False, finetune_only=False)
             download_checkpoints(repo_id, local_dir, allow_patterns, ignore_patterns)
             move_and_clean_checkpoints(local_dir, move_back_level)
         
-        copy_specific_files(local_dir, local_dir)
+        # Copy specific files if specified in the model configuration
+        copy_specific_files(local_dir, local_dir, specific_file, dest_specific_file_paths)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download checkpoints from Hugging Face Hub based on config.")

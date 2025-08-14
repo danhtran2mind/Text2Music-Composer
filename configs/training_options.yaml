@@ -1,0 +1,7 @@
+- model_id: "facebook/musicgen-small"
+  dataset: "CLAPv2/MusicCaps"
+
+- model_id: "ayousanz/AudioLDM-training-finetuning"
+  dataset: "amaai-lab/MusicBench"
+
+
