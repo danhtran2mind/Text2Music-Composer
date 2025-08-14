@@ -32,11 +32,11 @@ pip install -r requirements/requirements_inference.txt
 
 - Download all models (base and finetuned, as in the original behavior):
     ```bash
-    python download_ckpts.py  --base_model_only
+    python scripts/download_ckpts.py  --base_model_only
     ```
 - Download all models (base and finetuned, as in the original behavior):
     ```bash
-    python download_ckpts.py
+    python scripts/download_ckpts.py
     ```
 
 More detail you can read at [Download Model Checkpoints](docs/scripts/download_model_ckpts.md).
