@@ -13,20 +13,20 @@
   base_model: false
   platform: "HuggingFace"
 
-- model_id: "ayousanz/AudioLDM-training-finetuning"
-  local_dir: "ckpts/AudioLDM"
-  deny:
-    - "dataset/*"
-  base_model: true
-  move_back_level: 1 # Move all files and folders from checkpoints to AudioLDM directory.
-  platform: "HuggingFace"
-  specific_file:
-    - "clap_music_speech_audioset_epoch_15_esc_89.98.pt"
-    -  "hifigan_16k_64bins.json"
-    -  "hifigan_16k_64bins.ckpt"
-  dest_specific_file_paths: "ckpts"
-  
-# - model_id: "facebook/musicgen-small"
-#   local_dir: "ckpts/musicgen-small"
+# - model_id: "ayousanz/AudioLDM-training-finetuning"
+#   local_dir: "ckpts/AudioLDM"
+#   deny:
+#     - "dataset/*"
 #   base_model: true
+#   move_back_level: 1 # Move all files and folders from checkpoints to AudioLDM directory.
 #   platform: "HuggingFace"
+#   specific_file:
+#     - "clap_music_speech_audioset_epoch_15_esc_89.98.pt"
+#     -  "hifigan_16k_64bins.json"
+#     -  "hifigan_16k_64bins.ckpt"
+#   dest_specific_file_paths: "ckpts"
+  
+- model_id: "facebook/musicgen-small"
+  local_dir: "ckpts/musicgen-small"
+  base_model: true
+  platform: "HuggingFace"
