@@ -214,7 +214,7 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
                 processor.process_train_config(preset_args)
             except Exception as e:
                 logger.error(f"Pipeline processing failed: {e}")
-        raise
+                raise
 
         # Step 4: Run download_ckpts.py with optional model_id and filters
         ckpt_args = []
