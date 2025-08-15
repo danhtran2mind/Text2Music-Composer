@@ -364,6 +364,8 @@ def main():
     parser = argparse.ArgumentParser(description="Process datasets from HuggingFace with parallel file operations.")
     parser.add_argument('--num_processes', type=int, default=os.cpu_count() or 1,
                         help='Number of processes to use (capped at CPU count)')
+    parser.add_argument('--preset_name', type=str, default=None,
+                        help='Name of the preset to process (optional; if not provided, process all presets)')
     args = parser.parse_args()
 
     # Validate number of processes
@@ -379,6 +381,14 @@ def main():
     except Exception as e:
         logger.error(f"Failed to load configurations: {e}")
         return
+
+    # Filter datasets by preset_name if provided
+    if args.preset_name:
+        process_config = [dataset_info for dataset_info in process_config 
+                         if dataset_info['preset_name'] == args.preset_name]
+        if not process_config:
+            logger.error(f"No dataset found with preset_name: {args.preset_name}")
+            return
 
     # Process each dataset
     for dataset_info in process_config:
