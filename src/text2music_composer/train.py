@@ -190,13 +190,13 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
             raise FileNotFoundError(f"Checkpoint directory {checkpoint_dir} not found")
 
         if preset_name == 'AudioLDM-finetuning':
-            device = 'gpu' if torch.cuda.is_available() else 'cpu'
+            accelerator_device = 'gpu' if torch.cuda.is_available() else 'cpu'
             train_cmd = [
                 'python', os.path.join(third_party_dir, 'src', 'audioldm', 'train.py'),
                 '--config_yaml', os.path.join('configs', 'AudioLDM_training_configs', 'audioldm_original.yaml'),
                 '--reload_from_ckpt', os.path.join(checkpoint_dir, 'audioldm-s-full.ckpt'),
                 '--wandb_off',
-                '--accelerator', device,
+                '--accelerator', accelerator_device,
                 '--output_dir', output_model_dir
             ]
         elif preset_name == 'MusicGen-Small-MusicCaps-finetuning':
