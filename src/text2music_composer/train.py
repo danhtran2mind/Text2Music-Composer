@@ -377,7 +377,7 @@ def main():
         dataset_dir = get_dataset_processed_data_dir(dataset_id, process_datasets_config)
     else:
         dataset_dir = get_dataset_local_dir(dataset_id, datasets_config)
-    
+    print("dataset_dir, dataset_dir, dataset_dir: ", dataset_dir)
     if not dataset_dir:
         logger.error(f"Dataset {dataset_id} local directory not found for preset {preset_name}")
         raise ValueError(f"Dataset {dataset_id} local directory not found")
