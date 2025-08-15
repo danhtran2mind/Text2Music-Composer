@@ -1,4 +1,4 @@
-metadata_root: "./data/amaai-lab-MusicBench/metadata/dataset_root.json"
+metadata_root: "./data/amaai-lab-MusicBench--MusicGen-Small-MusicCaps-finetuning/metadata/dataset_root.json"
 log_directory: "./ckpts/AudioLDM-finetuning/log/latent_diffusion"
 project: "audioldm"
 precision: "high"
