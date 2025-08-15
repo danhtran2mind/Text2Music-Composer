@@ -1,0 +1,11 @@
+- preset_name:  "MusicGen-Small-MusicCaps-finetuning"
+  model_id: "ayousanz/AudioLDM-training-finetuning"
+  dataset_id: "amaai-lab/MusicBench"
+  processed_data_dir: "data/amaai-lab-MusicBench--MusicGen-Small-MusicCaps-finetuning"
+  processing_classs: abc
+
+- preset_name: "AudioLDM-finetuning"
+  model_id: "facebook/musicgen-small"
+  dataset_id: "CLAPv2/MusicCaps"
+  processing_classs: null
+  

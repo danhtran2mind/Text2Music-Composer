@@ -170,9 +170,9 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
 
         # Define training command based on preset_name
         if preset_name == 'AudioLDM-finetuning':
-            if model_id != 'ayousanz/AudioLDM-training-finetuning':
-                logger.error(f"Preset {preset_name} expects model ayousanz/AudioLDM-training-finetuning, got {model_id}")
-                raise ValueError(f"Invalid model for preset {preset_name}")
+            # if model_id != 'ayousanz/AudioLDM-training-finetuning':
+            #     logger.error(f"Preset {preset_name} expects model ayousanz/AudioLDM-training-finetuning, got {model_id}")
+            #     raise ValueError(f"Invalid model for preset {preset_name}")
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             train_cmd = [
                 'python', os.path.join(third_party_dir, 'src', 'audioldm', 'train.py'),
@@ -183,12 +183,13 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
                 '--output_dir', output_model_dir
             ]
         elif preset_name == 'MusicGen-Small-MusicCaps-finetuning':
-            if model_id != 'facebook/musicgen-small':
-                logger.error(f"Preset {preset_name} expects model facebook/musicgen-small, got {model_id}")
-                raise ValueError(f"Invalid model for preset {preset_name}")
+            # if model_id != 'facebook/musicgen-small':
+            #     logger.error(f"Preset {preset_name} expects model facebook/musicgen-small, got {model_id}")
+            #     raise ValueError(f"Invalid model for preset {preset_name}")
             train_cmd = [
                 'python', os.path.join(third_party_dir, 'dreambooth_musicgen.py'),
                 '--model_name_or_path', checkpoint_dir,
+                '--is_resume_from_checkpoint', 'false',
                 '--dataset_name', dataset_path,
                 '--dataset_config_name', 'default',
                 '--target_audio_column_name', 'audio',
