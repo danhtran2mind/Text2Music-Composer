@@ -232,9 +232,8 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
 def train_model(preset_name: str, model_id: str, dataset_id: str, 
-                third_party_dir: str, checkpoint_dir: str, 
-                dataset_dir: str, output_model_dir: str, 
-                processing_classs: str) -> None:
+                third_party_dir: str, checkpoint_dir: str, dataset_dir: str, 
+                output_model_dir: str) -> None:
     """
     Train a model using the specified dataset and third-party training script with retry logic.
 
