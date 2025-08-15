@@ -109,7 +109,11 @@ def extract_dataset(dataset_id: str, local_dir: str, music_bench_dir: str) -> No
             raise FileNotFoundError(f"Tar file not found: {tar_path}")
         
         with tarfile.open(tar_path, "r:gz") as tar:
-            tar.extractall(path=music_bench_dir)
+            # Get list of members for progress bar
+            members = tar.getmembers()
+            # Add tqdm progress bar for extraction
+            for member in tqdm(members, desc="Extracting dataset", unit="file"):
+                tar.extract(member, path=music_bench_dir)
         logger.info(f"Dataset {dataset_id} extracted to {music_bench_dir}")
     except Exception as e:
         logger.error(f"Failed to download or extract dataset {dataset_id}: {e}")
@@ -191,7 +195,8 @@ def move_and_cleanup_files(
         train_results = []
         logger.info("Moving training files...")
         with mp.Pool(processes=num_processes) as pool:
-            for result in tqdm(pool.imap(move_file, train_tasks), total=len(train_tasks), desc="Moving train files"):
+            for result in tqdm(pool.imap(move_file, train_tasks), total=len(train_tasks), 
+                               desc="Moving train files"):
                 train_results.append(result)
             for index, success in train_results:
                 if not success:
@@ -201,7 +206,8 @@ def move_and_cleanup_files(
         val_results = []
         logger.info("Moving validation files...")
         with mp.Pool(processes=num_processes) as pool:
-            for result in tqdm(pool.imap(move_file, val_tasks), total=len(val_tasks), desc="Moving validation files"):
+            for result in tqdm(pool.imap(move_file, val_tasks), total=len(val_tasks), 
+                               desc="Moving validation files"):
                 val_results.append(result)
             for index, success in val_results:
                 if not success:
