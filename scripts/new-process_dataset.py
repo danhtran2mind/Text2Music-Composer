@@ -10,6 +10,7 @@ import tarfile
 import json
 import multiprocessing as mp
 from typing import Tuple, List, Dict, Any
+from tqdm import tqdm  # Import tqdm for progress bars
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -186,13 +187,22 @@ def move_and_cleanup_files(
             for index, row in val_df.iterrows()
         ]
 
+        # Process train tasks with tqdm progress bar
+        train_results = []
+        logger.info("Moving training files...")
         with mp.Pool(processes=num_processes) as pool:
-            train_results = pool.map(move_file, train_tasks)
+            for result in tqdm(pool.imap(move_file, train_tasks), total=len(train_tasks), desc="Moving train files"):
+                train_results.append(result)
             for index, success in train_results:
                 if not success:
                     train_df = train_df.drop(index, errors="ignore")
-            
-            val_results = pool.map(move_file, val_tasks)
+        
+        # Process validation tasks with tqdm progress bar
+        val_results = []
+        logger.info("Moving validation files...")
+        with mp.Pool(processes=num_processes) as pool:
+            for result in tqdm(pool.imap(move_file, val_tasks), total=len(val_tasks), desc="Moving validation files"):
+                val_results.append(result)
             for index, success in val_results:
                 if not success:
                     val_df = val_df.drop(index, errors="ignore")
@@ -390,8 +400,8 @@ def main():
             logger.error(f"No dataset found with preset_name: {args.preset_name}")
             return
 
-    # Process each dataset
-    for dataset_info in process_config:
+    # Process each dataset with tqdm progress bar
+    for dataset_info in tqdm(process_config, desc="Processing datasets"):
         process_dataset(dataset_info, datasets_info, num_processes)
 
 if __name__ == "__main__":
