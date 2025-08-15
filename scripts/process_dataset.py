@@ -111,8 +111,8 @@ def extract_dataset(dataset_id: str, local_dir: str, music_bench_dir: str) -> No
         with tarfile.open(tar_path, "r:gz") as tar:
             # Get list of members for progress bar
             members = tar.getmembers()
-            # Add tqdm progress bar for extraction
-            for member in tqdm(members, desc="Extracting dataset", unit="file"):
+            # Add tqdm progress bar for extraction with fixed width and smooth updates
+            for member in tqdm(members, desc="Extracting dataset", unit="file", leave=True):
                 tar.extract(member, path=music_bench_dir)
         logger.info(f"Dataset {dataset_id} extracted to {music_bench_dir}")
     except Exception as e:
