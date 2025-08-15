@@ -59,7 +59,11 @@ More detail you can read at [Download Model Checkpoints](docs/scripts/download_m
 ```
 
 
+!python scripts/download_datasets.py \
+    --dataset_id "amaai-lab/MusicBench"
 
+!python scripts/new-process_dataset.py \
+    --preset_name "AudioLDM-finetuning"
 
 
 ## Training
