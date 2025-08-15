@@ -120,7 +120,7 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
         run_pipeline_script(os.path.join('scripts', 'download_datasets.py'), dataset_args)
 
         # Step 3: Run process_dataset.py
-        run_pipeline_script(os.path.join('scripts', 'process_dataset.py'))
+        # run_pipeline_script(os.path.join('scripts', 'process_dataset.py'))
 
         # Step 4: Run download_ckpts.py with optional model_id
         ckpt_args = []

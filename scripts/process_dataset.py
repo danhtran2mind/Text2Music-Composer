@@ -35,12 +35,12 @@ def load_config(config_path: str) -> List[Dict[str, str]]:
         logger.error(f"Error loading configuration from {config_path}: {e}")
         raise
 
-def load_and_clean_dataset(dataset_name: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_and_clean_dataset(dataset_id: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Load and clean the dataset, removing duplicates by keeping the row with the longest main_caption per location.
 
     Args:
-        dataset_name (str): Hugging Face dataset name.
+        dataset_id (str): Hugging Face dataset name.
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame]: Cleaned train and validation DataFrames.
@@ -50,9 +50,9 @@ def load_and_clean_dataset(dataset_name: str) -> Tuple[pd.DataFrame, pd.DataFram
         Exception: For other loading or cleaning errors.
     """
     try:
-        dataset = load_dataset(dataset_name)
+        dataset = load_dataset(dataset_id)
         if "train" not in dataset or "test" not in dataset:
-            raise ValueError(f"Dataset {dataset_name} does not contain 'train' or 'test' splits.")
+            raise ValueError(f"Dataset {dataset_id} does not contain 'train' or 'test' splits.")
         
         train_df = pd.DataFrame(dataset["train"]).groupby("location")["main_caption"].apply(
             lambda x: x.loc[x.str.len().idxmax()]
@@ -61,18 +61,18 @@ def load_and_clean_dataset(dataset_name: str) -> Tuple[pd.DataFrame, pd.DataFram
             lambda x: x.loc[x.str.len().idxmax()]
         ).reset_index()
         
-        logger.info(f"Loaded dataset {dataset_name}. Train set size: {len(train_df)}, Validation set size: {len(val_df)}")
+        logger.info(f"Loaded dataset {dataset_id}. Train set size: {len(train_df)}, Validation set size: {len(val_df)}")
         return train_df, val_df
     except Exception as e:
-        logger.error(f"Failed to load or clean dataset {dataset_name}: {e}")
+        logger.error(f"Failed to load or clean dataset {dataset_id}: {e}")
         raise
 
-def download_and_extract_dataset(dataset_name: str, local_dir: str, music_bench_dir: str) -> None:
+def download_and_extract_dataset(dataset_id: str, local_dir: str, music_bench_dir: str) -> None:
     """
     Download and extract the dataset from Hugging Face.
 
     Args:
-        dataset_name (str): Hugging Face dataset name.
+        dataset_id (str): Hugging Face dataset name.
         local_dir (str): Directory to store raw downloaded data.
         music_bench_dir (str): Directory to extract the dataset.
 
@@ -82,7 +82,7 @@ def download_and_extract_dataset(dataset_name: str, local_dir: str, music_bench_
     """
     try:
         os.makedirs(music_bench_dir, exist_ok=True)
-        snapshot_download(repo_id=dataset_name, local_dir=local_dir, repo_type="dataset")
+        snapshot_download(repo_id=dataset_id, local_dir=local_dir, repo_type="dataset")
         
         tar_path = os.path.join(local_dir, "MusicBench.tar.gz")
         if not os.path.exists(tar_path):
@@ -90,9 +90,9 @@ def download_and_extract_dataset(dataset_name: str, local_dir: str, music_bench_
         
         with tarfile.open(tar_path, "r:gz") as tar:
             tar.extractall(path=music_bench_dir)
-        logger.info(f"Dataset {dataset_name} extracted to {music_bench_dir}")
+        logger.info(f"Dataset {dataset_id} extracted to {music_bench_dir}")
     except Exception as e:
-        logger.error(f"Failed to download or extract dataset {dataset_name}: {e}")
+        logger.error(f"Failed to download or extract dataset {dataset_id}: {e}")
         raise
 
 def move_file(args: Tuple[str, str, int]) -> Tuple[int, bool]:
@@ -305,7 +305,7 @@ def process_dataset(dataset_info: Dict[str, str], local_data_dir: str, num_proce
     Raises:
         Exception: For any processing errors.
     """
-    dataset_name = dataset_info['dataset_name']
+    dataset_id = dataset_info['dataset_id']
     dataset_dir = dataset_info['local_dir']
     local_dir = os.path.join(local_data_dir, f"temp--{dataset_dir}")
     
@@ -316,16 +316,16 @@ def process_dataset(dataset_info: Dict[str, str], local_data_dir: str, num_proce
     music_bench_dir = os.path.join(local_data_dir, dataset_dir, "audioset", "music_bench")
 
     try:
-        logger.info(f"Processing dataset {dataset_name}")
-        train_df, val_df = load_and_clean_dataset(dataset_name)
-        download_and_extract_dataset(dataset_name, local_dir, music_bench_dir)
+        logger.info(f"Processing dataset {dataset_id}")
+        train_df, val_df = load_and_clean_dataset(dataset_id)
+        download_and_extract_dataset(dataset_id, local_dir, music_bench_dir)
         train_df, val_df = move_and_cleanup_files(local_dir, music_bench_dir, train_df, val_df, num_processes, dataset_dir)
         train_data, val_data = prepare_json_data(train_df, val_df)
         write_json_files(train_data, val_data, dataset_dir)
         create_dataset_root_json(dataset_dir)
-        logger.info(f"Successfully processed dataset {dataset_name}")
+        logger.info(f"Successfully processed dataset {dataset_id}")
     except Exception as e:
-        logger.error(f"Error processing dataset {dataset_name}: {e}")
+        logger.error(f"Error processing dataset {dataset_id}: {e}")
         raise
 
 def main():
