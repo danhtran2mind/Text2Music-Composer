@@ -197,7 +197,6 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
                 '--reload_from_ckpt', os.path.join(checkpoint_dir, 'audioldm-s-full.ckpt'),
                 '--wandb_off',
                 '--accelerator', accelerator_device,
-                '--output_dir', output_model_dir
             ]
         elif preset_name == 'MusicGen-Small-MusicCaps-finetuning':
             train_cmd = [
