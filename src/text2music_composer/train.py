@@ -189,7 +189,7 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
             train_cmd = [
                 'python', os.path.join(third_party_dir, 'dreambooth_musicgen.py'),
                 '--model_name_or_path', checkpoint_dir,
-                '--dataset_id', dataset_path,
+                '--dataset_name', dataset_path,
                 '--dataset_config_name', 'default',
                 '--target_audio_column_name', 'audio',
                 '--text_column_name', 'caption',
