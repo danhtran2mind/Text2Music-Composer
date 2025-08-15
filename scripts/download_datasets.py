@@ -27,7 +27,7 @@ def download_dataset(dataset_info):
 def main():
     """Main function to download datasets based on configuration."""
     parser = argparse.ArgumentParser(description="Download datasets from HuggingFace")
-    parser.add_argument('--config_path', type=str, required=True,
+    parser.add_argument('--config_path', type=str, default="configs/datasets_info.yaml",
                         help='Path to the configuration YAML file')
     parser.add_argument('--dataset_id', type=str,
                         help='Optional Dataset ID to download (if not provided, downloads all datasets in config)')
