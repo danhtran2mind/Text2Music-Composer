@@ -2,6 +2,6 @@
   local_dir: "amaai-lab-MusicBench"
   platform: "HuggingFace"
 
-# - dataset_name: "CLAPv2/MusicCaps"
-#   local_dir: "CLAPv2-MusicCaps"
-#   platform: "HuggingFace"
+- dataset_name: "CLAPv2/MusicCaps"
+  local_dir: "CLAPv2-MusicCaps"
+  platform: "HuggingFace"
