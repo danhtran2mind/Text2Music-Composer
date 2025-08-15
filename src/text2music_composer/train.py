@@ -75,6 +75,24 @@ def get_dataset_local_dir(dataset_id: str, datasets_config: List[Dict[str, str]]
     logger.warning(f"Dataset {dataset_id} not found in datasets_info.yaml")
     return None
 
+def get_dataset_processed_data_dir(dataset_id: str, 
+                                   datasets_config: List[Dict[str, str]]) -> Optional[str]:
+    """
+    Retrieve the local directory for a dataset from datasets_info.yaml.
+
+    Args:
+        dataset_id (str): Name of the dataset (e.g., CLAPv2/MusicCaps).
+        datasets_config (List[Dict[str, str]]): Dataset configurations.
+
+    Returns:
+        Optional[str]: Local directory path or None if not found.
+    """
+    for dataset in datasets_config:
+        if dataset['dataset_id'] == dataset_id:
+            return dataset['processed_data_dir']
+    logger.warning(f"Dataset {dataset_id} not found in process_datasets.yaml")
+    return None
+
 def get_checkpoint_info(model_id: str, ckpts_config: List[Dict[str, any]]) -> Optional[Dict[str, any]]:
     """
     Retrieve checkpoint information for a model from model_ckpts.yaml.
@@ -248,6 +266,7 @@ def main():
         Exception: For configuration, pipeline, or training errors.
     """
     config_path = os.path.join('configs', 'training_presets.yaml')
+    process_datasets_config_path = os.path.join('configs', 'process_datasets.yaml')
     try:
         training_config = load_config(config_path)
         preset_choices = [preset.get('preset_name') for preset in training_config if preset.get('preset_name')]
@@ -256,6 +275,12 @@ def main():
             raise ValueError(f"No valid presets found in {config_path}")
     except Exception as e:
         logger.error(f"Failed to load preset choices from {config_path}: {e}")
+        raise
+
+    try:
+        process_datasets_config = load_config(process_datasets_config_path)
+    except Exception as e:
+        logger.error(f"Failed to load preset choices from {process_datasets_config}: {e}")
         raise
 
     parser = argparse.ArgumentParser(description="Train a single text-to-music model based on the selected preset.")
@@ -304,17 +329,25 @@ def main():
     except Exception as e:
         logger.error(f"Failed to load configurations: {e}")
         raise
-
+    
+    # Training Preset
     training_config = [preset for preset in training_config 
                        if preset.get('preset_name').lower() == args.preset_name.lower()]
     if not training_config:
         logger.error(f"No preset found with name {args.preset_name}. Available presets: {preset_choices}")
         raise ValueError(f"Preset {args.preset_name} not found in {args.config_path}")
+    
+    # Process Datasets Config
+    process_datasets_config = [preset for preset in process_datasets_config 
+                       if preset.get('preset_name').lower() == args.preset_name.lower()]
+    preset_process_datasets= process_datasets_config[0]
+    # preset_name_process_datasets = preset_process_datasets.get('preset_name')
+    processing_classs_process_datasets = preset_process_datasets.get('processing_classs')
 
     preset = training_config[0]
     preset_name = preset.get('preset_name')
     model_id = preset.get('model_id')
-    dataset_id = preset.get('dataset')
+    dataset_id = preset.get('dataset_id')
     third_party_repo = preset.get('third_party')
     output_model_dir = preset.get('output_model_dir')
 
@@ -340,7 +373,11 @@ def main():
         logger.error(f"Model {model_id} for preset {preset_name} is not a fine-tuned model")
         raise ValueError(f"Model {model_id} is not a fine-tuned model")
 
-    dataset_dir = get_dataset_local_dir(dataset_id, datasets_config)
+    if processing_classs_process_datasets:
+        dataset_dir = get_dataset_processed_data_dir(dataset_id, process_datasets_config)
+    else:
+        dataset_dir = get_dataset_local_dir(dataset_id, datasets_config)
+    
     if not dataset_dir:
         logger.error(f"Dataset {dataset_id} local directory not found for preset {preset_name}")
         raise ValueError(f"Dataset {dataset_id} local directory not found")
