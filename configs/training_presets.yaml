@@ -1,11 +1,15 @@
 - preset_name: "AudioLDM-finetuning"
   model_id: "ayousanz/AudioLDM-training-finetuning"
   dataset_id: "amaai-lab/MusicBench"
+  processed_data_dir: "data/AudioLDM-amaai-lab-MusicBench"
   output_model_dir: "ckpts/AudioLDM-finetuning/log"
   third_party: "https://github.com/danhtran2mind/Text2Audio-AudioLDM.git"
+  processing_class: "AudioLDMamaailabMusicBenchProcessor"  # Updated from 'abc'
 
 - preset_name:  "MusicGen-Small-MusicCaps-finetuning"
   model_id: "facebook/musicgen-small"
   dataset_id: "CLAPv2/MusicCaps"
+  processed_data_dir: "data/CLAPv2-MusicCaps"
   output_model_dir: "ckpts/MusicGen-Small-MusicCaps-finetuning"
   third_party: "https://github.com/danhtran2mind/musicgen-dreamboothing.git"
+  processing_class: "MusicGenCLAPv2MusicCapsProcessor"  # Updated from 'null'

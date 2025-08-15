@@ -11,6 +11,58 @@ import torch
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+# ----------------------------------------------------------------------------#
+#                     DATA & TRAINING CONFIGURATION PROCESSING                #
+# ----------------------------------------------------------------------------#
+# Constants
+SCRIPTS_DIR = "scripts"
+PROCESS_DATASET_SCRIPT = os.path.join(SCRIPTS_DIR, "process_dataset.py")
+PROCESS_TRAIN_CONFIG_SCRIPT = os.path.join(SCRIPTS_DIR, "process_train_config.py")
+
+class PipelineProcessor:
+    """Base class for pipeline processors."""
+    def process_dataset(self, preset_args: List[str]) -> None:
+        pass
+
+    def process_train_config(self, preset_args: List[str]) -> None:
+        pass
+
+class AudioLDMamaailabMusicBenchProcessor(PipelineProcessor):
+    """Processor for AudioLDM dataset and training configuration."""
+    def process_dataset(self, preset_args: List[str]) -> None:
+        run_pipeline_script(PROCESS_DATASET_SCRIPT, preset_args)
+
+    def process_train_config(self, preset_args: List[str]) -> None:
+        run_pipeline_script(PROCESS_TRAIN_CONFIG_SCRIPT, preset_args)
+
+class MusicGenCLAPv2MusicCapsProcessor(PipelineProcessor):
+    """Processor for MusicGen dataset and training configuration."""
+    def process_dataset(self, preset_args: List[str]) -> None:
+        logger.info("Skipping dataset processing for MusicGen")
+        pass
+
+    def process_train_config(self, preset_args: List[str]) -> None:
+        logger.info("Skipping train config processing for MusicGen")
+        pass
+
+def get_processor(processing_class: Optional[str]) -> PipelineProcessor:
+    """Returns the appropriate processor based on the processing_class name."""
+    if processing_class == "AudioLDMProcessor":
+        return AudioLDMProcessor()
+    elif processing_class == "MusicGenProcessor":
+        return MusicGenProcessor()
+    else:
+        raise ValueError(f"Unknown processing class: {processing_class}")
+
+# def run_pipeline_script(script_path: str, args: List[str]) -> None:
+#     """Runs a pipeline script with the given arguments."""
+#     # Placeholder for actual implementation
+#     logger.info(f"Running {script_path} with args: {args}")
+
+# ----------------------------------------------------------------------------#
+#                           FUNCTION DEFINITIONS                              #
+# ----------------------------------------------------------------------------#
+
 def load_config(config_path: str) -> List[Dict[str, any]]:
     """
     Load a YAML configuration file.
@@ -90,7 +142,7 @@ def get_dataset_processed_data_dir(dataset_id: str,
     for dataset in datasets_config:
         if dataset['dataset_id'] == dataset_id:
             return dataset['processed_data_dir']
-    logger.warning(f"Dataset {dataset_id} not found in process_datasets.yaml")
+    logger.warning(f"Dataset {dataset_id} not found in training_presets.yaml")
     return None
 
 def get_checkpoint_info(model_id: str, ckpts_config: List[Dict[str, any]]) -> Optional[Dict[str, any]]:
@@ -111,7 +163,8 @@ def get_checkpoint_info(model_id: str, ckpts_config: List[Dict[str, any]]) -> Op
     return None
 
 def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
-                    model_id: Optional[str] = None, dataset_id: Optional[str] = None) -> None:
+                    model_id: Optional[str] = None, dataset_id: str = None,
+                    processing_classs: Optional[str] = None) -> None:
     """
     Execute the prerequisite pipeline scripts in sequence with retry logic.
 
@@ -120,7 +173,7 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
         finetune_only (bool): If True, download only fine-tuned model checkpoints.
         model_id (Optional[str]): Model identifier to target specific checkpoint downloads.
         dataset_id (Optional[str]): Dataset name to target specific dataset downloads.
-
+        processing_classs (Optional[str]): Processing clase to process data and training config.
     Raises:
         ValueError: If both base_model_only and finetune_only are True.
         Exception: For other execution errors.
@@ -137,12 +190,31 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
         dataset_args = ['--dataset_id', dataset_id] if dataset_id else []
         run_pipeline_script(os.path.join('scripts', 'download_datasets.py'), dataset_args)
 
-        # Step 3: Run process_dataset.py with optional preset_name
-        preset_args = []
-        if model_id:
-            preset_name = 'AudioLDM-finetuning' if 'AudioLDM' in model_id else 'MusicGen-Small-MusicCaps-finetuning'
-            preset_args.extend(['--preset_name', preset_name])
-        run_pipeline_script(os.path.join('scripts', 'process_dataset.py'), preset_args)
+        # if processing_classs:
+        #     # Step 3: Run process_dataset.py with optional preset_name
+        #     preset_args = []
+        #     if model_id:
+        #         preset_name = 'AudioLDM-finetuning' if 'AudioLDM' in model_id else 'MusicGen-Small-MusicCaps-finetuning'
+        #         preset_args.extend(['--preset_name', preset_name])
+
+        #     run_pipeline_script(os.path.join('scripts', 'process_dataset.py'), preset_args)
+
+        #     run_pipeline_script(os.path.join('scripts', 'process_train_config.py'), preset_args)
+
+
+        if processing_classs:
+            preset_args = []
+            if model_id:
+                preset_name = 'AudioLDM-finetuning' if 'AudioLDM' in model_id else 'MusicGen-Small-MusicCaps-finetuning'
+                preset_args.extend(['--preset_name', preset_name])
+
+            try:
+                processor = get_processor(processing_classs)
+                processor.process_dataset(preset_args)
+                processor.process_train_config(preset_args)
+            except Exception as e:
+                logger.error(f"Pipeline processing failed: {e}")
+        raise
 
         # Step 4: Run download_ckpts.py with optional model_id and filters
         ckpt_args = []
@@ -161,7 +233,8 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
 def train_model(preset_name: str, model_id: str, dataset_id: str, 
                 third_party_dir: str, checkpoint_dir: str, 
-                dataset_dir: str, output_model_dir: str) -> None:
+                dataset_dir: str, output_model_dir: str, 
+                processing_classs: str) -> None:
     """
     Train a model using the specified dataset and third-party training script with retry logic.
 
@@ -173,6 +246,7 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
         checkpoint_dir (str): Directory containing model checkpoints.
         dataset_dir (str): Directory containing processed dataset.
         output_model_dir (str): Directory to save the trained model.
+        processing_classs (str): Class to process data and training config.
 
     Raises:
         FileNotFoundError: If required paths do not exist.
@@ -265,7 +339,7 @@ def main():
         Exception: For configuration, pipeline, or training errors.
     """
     config_path = os.path.join('configs', 'training_presets.yaml')
-    process_datasets_config_path = os.path.join('configs', 'process_datasets.yaml')
+    # process_datasets_config_path = os.path.join('configs', 'process_datasets.yaml')
     try:
         training_config = load_config(config_path)
         preset_choices = [preset.get('preset_name') for preset in training_config if preset.get('preset_name')]
@@ -276,11 +350,11 @@ def main():
         logger.error(f"Failed to load preset choices from {config_path}: {e}")
         raise
 
-    try:
-        process_datasets_config = load_config(process_datasets_config_path)
-    except Exception as e:
-        logger.error(f"Failed to load preset choices from {process_datasets_config}: {e}")
-        raise
+    # try:
+    #     process_datasets_config = load_config(process_datasets_config_path)
+    # except Exception as e:
+    #     logger.error(f"Failed to load preset choices from {process_datasets_config}: {e}")
+    #     raise
 
     parser = argparse.ArgumentParser(description="Train a single text-to-music model based on the selected preset.")
     parser.add_argument(
@@ -337,11 +411,11 @@ def main():
         raise ValueError(f"Preset {args.preset_name} not found in {args.config_path}")
     
     # Process Datasets Config
-    process_datasets_config = [preset for preset in process_datasets_config 
-                       if preset.get('preset_name').lower() == args.preset_name.lower()]
-    preset_process_datasets= process_datasets_config[0]
+    # process_datasets_config = [preset for preset in process_datasets_config 
+    #                    if preset.get('preset_name').lower() == args.preset_name.lower()]
+    # preset_process_datasets= process_datasets_config[0]
     # preset_name_process_datasets = preset_process_datasets.get('preset_name')
-    processing_classs_process_datasets = preset_process_datasets.get('processing_classs')
+    
 
     preset = training_config[0]
     preset_name = preset.get('preset_name')
@@ -349,13 +423,15 @@ def main():
     dataset_id = preset.get('dataset_id')
     third_party_repo = preset.get('third_party')
     output_model_dir = preset.get('output_model_dir')
+    processing_classs = preset.get('processing_classs')
 
     if not all([preset_name, model_id, dataset_id, third_party_repo, output_model_dir]):
         logger.error(f"Incomplete preset: {preset}")
         raise ValueError(f"Preset {preset_name} is missing required fields")
 
     execute_pipeline(base_model_only=args.base_model_only, finetune_only=args.finetune_only,
-                    model_id=model_id, dataset_id=dataset_id)
+                    model_id=model_id, dataset_id=dataset_id, 
+                    processing_classs=processing_classs)
 
     ckpt_info = get_checkpoint_info(model_id, ckpts_config)
     if not ckpt_info:
@@ -372,10 +448,11 @@ def main():
         logger.error(f"Model {model_id} for preset {preset_name} is not a fine-tuned model")
         raise ValueError(f"Model {model_id} is not a fine-tuned model")
 
-    if processing_classs_process_datasets:
-        dataset_dir = get_dataset_processed_data_dir(dataset_id, process_datasets_config)
+    if processing_classs:
+        dataset_dir = get_dataset_processed_data_dir(dataset_id, datasets_config)
     else:
         dataset_dir = get_dataset_local_dir(dataset_id, datasets_config)
+
     print("dataset_dir, dataset_dir, dataset_dir: ", dataset_dir)
     if not dataset_dir:
         logger.error(f"Dataset {dataset_id} local directory not found for preset {preset_name}")

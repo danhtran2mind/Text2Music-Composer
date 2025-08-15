@@ -335,7 +335,7 @@ def process_dataset(dataset_info: Dict[str, str], datasets_info: List[Dict[str, 
     Process a single dataset: load, clean, download, extract, move files, and create JSON files.
 
     Args:
-        dataset_info (Dict[str, str]): Dataset configuration from process_datasets.yaml.
+        dataset_info (Dict[str, str]): Dataset configuration from training_presets.yaml.
         datasets_info (List[Dict[str, str]]): Dataset info from datasets_info.yaml.
         num_processes (int): Number of processes for parallel file operations.
 
@@ -390,7 +390,7 @@ def main():
     logger.info(f"Using {num_processes} processes for parallel file operations.")
 
     # Load configurations
-    process_config_path = os.path.join('configs', 'process_datasets.yaml')
+    process_config_path = os.path.join('configs', 'training_presets.yaml')
     datasets_info_path = os.path.join('configs', 'datasets_info.yaml')
     try:
         process_config = load_config(process_config_path)

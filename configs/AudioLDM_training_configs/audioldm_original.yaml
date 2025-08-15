@@ -138,7 +138,7 @@ model:
         conditioning_key: film
         target: audioldm_train.conditional_models.CLAPAudioEmbeddingClassifierFreev2
         params:
-          pretrained_path: ckpts/AudioLDM/clap_htsat_tiny.pt
+          pretrained_path: "ckpts/AudioLDM/clap_htsat_tiny.pt"
           sampling_rate: 16000
           embed_mode: text # or text
           amodel: HTSAT-tiny
