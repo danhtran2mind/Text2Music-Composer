@@ -75,7 +75,9 @@ You can replace `--model_name_or_path "./ckpts/musicgen-small"` such as:
 - From previous checkpoint:
     `--model_name_or_path  "./ckpts/MusicGen-Small-MusicCaps-finetuning"`
 
-
+```bash
+python src/text2music_composer/train.py
+```
 Audio-finetuning
 
 https://github.com/haoheliu/AudioLDM-training-finetuning

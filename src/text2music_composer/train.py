@@ -90,13 +90,16 @@ def run_pipeline_script(script_path: str, args: List[str] = None) -> None:
         logger.error(f"Failed to execute {script_path}: {e}")
         raise
 
-def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False) -> None:
+def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
+                    model_id: Optional[str] = None, dataset_name: Optional[str] = None) -> None:
     """
     Execute the prerequisite pipeline scripts in sequence.
 
     Args:
         base_model_only (bool): If True, download only base model checkpoints.
         finetune_only (bool): If True, download only fine-tuned model checkpoints.
+        model_id (Optional[str]): Model identifier to target specific checkpoint downloads.
+        dataset_name (Optional[str]): Dataset name to target specific dataset downloads.
 
     Raises:
         ValueError: If both base_model_only and finetune_only are True.
@@ -110,18 +113,23 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False)
         # Step 1: Run setup_third_party.py
         run_pipeline_script(os.path.join('scripts', 'setup_third_party.py'))
 
-        # Step 2: Run download_datasets.py
-        run_pipeline_script(os.path.join('scripts', 'download_datasets.py'))
+        # Step 2: Run download_datasets.py with optional dataset_name
+        dataset_args = []
+        if dataset_name:
+            dataset_args.extend(['--dataset_name', dataset_name])
+        run_pipeline_script(os.path.join('scripts', 'download_datasets.py'), dataset_args)
 
         # Step 3: Run process_dataset.py
         run_pipeline_script(os.path.join('scripts', 'process_dataset.py'))
 
-        # Step 4: Run download_ckpts.py
+        # Step 4: Run download_ckpts.py with optional model_id
         ckpt_args = []
         if base_model_only:
             ckpt_args.append('--base_model_only')
         elif finetune_only:
             ckpt_args.append('--finetune_only')
+        if model_id:
+            ckpt_args.extend(['--model_id', model_id])
         run_pipeline_script(os.path.join('scripts', 'download_ckpts.py'), ckpt_args)
 
     except Exception as e:
@@ -307,9 +315,6 @@ def main():
         logger.error(f"No preset found with name {args.preset_name}. Available presets: {preset_choices}")
         raise ValueError(f"Preset {args.preset_name} not found in {args.config_path}")
 
-    # Execute the pipeline
-    execute_pipeline(base_model_only=args.base_model_only, finetune_only=args.finetune_only)
-
     # Process the selected preset
     preset = training_config[0]  # Only one preset should match
     preset_name = preset.get('preset_name')
@@ -322,6 +327,10 @@ def main():
     if not all([preset_name, model_id, dataset_name, third_party_repo, output_model_dir]):
         logger.error(f"Incomplete preset: {preset}")
         raise ValueError(f"Preset {preset_name} is missing required fields")
+
+    # Execute the pipeline with model_id and dataset_name
+    execute_pipeline(base_model_only=args.base_model_only, finetune_only=args.finetune_only,
+                    model_id=model_id, dataset_name=dataset_name)
 
     # Get checkpoint information
     ckpt_info = get_checkpoint_info(model_id, ckpts_config)
