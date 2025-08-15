@@ -158,7 +158,8 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
     """
     try:
         # Construct dataset path
-        dataset_path = os.path.join('data', dataset_dir, 'audioset')
+        # dataset_path = os.path.join(dataset_dir, 'audioset')
+        dataset_path = os.path.join(dataset_dir)
         if not os.path.exists(dataset_path):
             logger.error(f"Dataset path {dataset_path} does not exist")
             raise FileNotFoundError(f"Dataset path {dataset_path} not found")
@@ -351,7 +352,6 @@ def main():
 
     # Get dataset local directory
     dataset_dir = get_dataset_local_dir(dataset_id, datasets_config)
-    dataset_dir= "data/CLAPv2-MusicCaps"
     if not dataset_dir:
         logger.error(f"Dataset {dataset_id} local directory not found for preset {preset_name}")
         raise ValueError(f"Dataset {dataset_id} local directory not found")
