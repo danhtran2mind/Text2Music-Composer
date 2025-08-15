@@ -104,11 +104,18 @@ def download_specific_checkpoint(repo_id, local_dir, checkpoint_path):
         print(f"Error downloading checkpoint {checkpoint_path}: {e}")
         raise
 
-def model_checkpoint_process(config, base_model_only=False, finetune_only=False):
-    """Process checkpoints for models in the config based on base_model status."""
+def model_checkpoint_process(config, base_model_only=False, finetune_only=False, model_id=None):
+    """Process checkpoints for models in the config based on base_model status or specific model_id."""
     if base_model_only and finetune_only:
         print("Error: Cannot select both --base_model_only and --finetune_only.")
         sys.exit(1)
+
+    if model_id:
+        # Filter config to only include the specified model_id
+        config = [model for model in config if model.get("model_id") == model_id]
+        if not config:
+            print(f"Error: Model ID {model_id} not found in the configuration.")
+            sys.exit(1)
 
     for model in config:
         repo_id = model.get("model_id")
@@ -121,13 +128,15 @@ def model_checkpoint_process(config, base_model_only=False, finetune_only=False)
         specific_file = model.get("specific_file", None)
         dest_specific_file_paths = model.get("dest_specific_file_paths", None)
 
-        # Filter models based on base_model status
-        if base_model_only and not is_base_model:
-            print(f"Skipping {repo_id}: Not a base model")
-            continue
-        if finetune_only and is_base_model:
-            print(f"Skipping {repo_id}: Not a finetuned model")
-            continue
+        # If model_id is specified, skip base_model/finetune filtering
+        if not model_id:
+            # Filter models based on base_model status
+            if base_model_only and not is_base_model:
+                print(f"Skipping {repo_id}: Not a base model")
+                continue
+            if finetune_only and is_base_model:
+                print(f"Skipping {repo_id}: Not a finetuned model")
+                continue
 
         if platform != "HuggingFace":
             print(f"Unsupported platform {platform} for model {repo_id}. Skipping.")
@@ -167,6 +176,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Download checkpoints for both base and finetuned models (default)"
     )
+    parser.add_argument(
+        "--model_id",
+        type=str,
+        help="Download only the specific model with the given model_id, ignoring base_model_only, finetune_only, or both flags"
+    )
     args = parser.parse_args()
 
     # Validate arguments
@@ -174,10 +188,19 @@ if __name__ == "__main__":
         print("Error: Only one of --base_model_only, --finetune_only, or --both can be specified.")
         sys.exit(1)
 
-    # Default to both if no specific filter is provided
-    if not args.base_model_only and not args.finetune_only and not args.both:
+    # If model_id is specified, it takes precedence over other flags
+    if args.model_id and (args.base_model_only or args.finetune_only or args.both):
+        print("Warning: --model_id is specified, ignoring --base_model_only, --finetune_only, and --both flags.")
+
+    # Default to both if no specific filter is provided and model_id is not specified
+    if not args.model_id and not args.base_model_only and not args.finetune_only and not args.both:
         args.both = True
 
     # Load and process the configuration
     config = load_config(args.config_path)
-    model_checkpoint_process(config, base_model_only=args.base_model_only, finetune_only=args.finetune_only)
+    model_checkpoint_process(
+        config,
+        base_model_only=args.base_model_only,
+        finetune_only=args.finetune_only,
+        model_id=args.model_id
+    )

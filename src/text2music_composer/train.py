@@ -35,21 +35,21 @@ def load_yaml_config(config_path: str) -> List[Dict[str, any]]:
         logger.error(f"Error parsing YAML file {config_path}: {e}")
         raise
 
-def get_dataset_local_dir(dataset_name: str, datasets_config: List[Dict[str, str]]) -> Optional[str]:
+def get_dataset_local_dir(dataset_id: str, datasets_config: List[Dict[str, str]]) -> Optional[str]:
     """
     Retrieve the local directory for a dataset from datasets_info.yaml.
 
     Args:
-        dataset_name (str): Name of the dataset (e.g., CLAPv2/MusicCaps).
+        dataset_id (str): Name of the dataset (e.g., CLAPv2/MusicCaps).
         datasets_config (List[Dict[str, str]]): Dataset configurations.
 
     Returns:
         Optional[str]: Local directory path or None if not found.
     """
     for dataset in datasets_config:
-        if dataset['dataset_name'] == dataset_name:
+        if dataset['dataset_id'] == dataset_id:
             return dataset['local_dir']
-    logger.warning(f"Dataset {dataset_name} not found in datasets_info.yaml")
+    logger.warning(f"Dataset {dataset_id} not found in datasets_info.yaml")
     return None
 
 def get_checkpoint_info(model_id: str, ckpts_config: List[Dict[str, any]]) -> Optional[Dict[str, any]]:
@@ -91,7 +91,7 @@ def run_pipeline_script(script_path: str, args: List[str] = None) -> None:
         raise
 
 def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
-                    model_id: Optional[str] = None, dataset_name: Optional[str] = None) -> None:
+                    model_id: Optional[str] = None, dataset_id: Optional[str] = None) -> None:
     """
     Execute the prerequisite pipeline scripts in sequence.
 
@@ -99,7 +99,7 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
         base_model_only (bool): If True, download only base model checkpoints.
         finetune_only (bool): If True, download only fine-tuned model checkpoints.
         model_id (Optional[str]): Model identifier to target specific checkpoint downloads.
-        dataset_name (Optional[str]): Dataset name to target specific dataset downloads.
+        dataset_id (Optional[str]): Dataset name to target specific dataset downloads.
 
     Raises:
         ValueError: If both base_model_only and finetune_only are True.
@@ -113,10 +113,10 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
         # Step 1: Run setup_third_party.py
         run_pipeline_script(os.path.join('scripts', 'setup_third_party.py'))
 
-        # Step 2: Run download_datasets.py with optional dataset_name
+        # Step 2: Run download_datasets.py with optional dataset_id
         dataset_args = []
-        if dataset_name:
-            dataset_args.extend(['--dataset_name', dataset_name])
+        if dataset_id:
+            dataset_args.extend(['--dataset_id', dataset_id])
         run_pipeline_script(os.path.join('scripts', 'download_datasets.py'), dataset_args)
 
         # Step 3: Run process_dataset.py
@@ -136,7 +136,7 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
         logger.error(f"Pipeline execution failed: {e}")
         raise
 
-def train_model(preset_name: str, model_id: str, dataset_name: str, 
+def train_model(preset_name: str, model_id: str, dataset_id: str, 
                 third_party_dir: str, checkpoint_dir: str, 
                 dataset_dir: str, output_model_dir: str) -> None:
     """
@@ -145,7 +145,7 @@ def train_model(preset_name: str, model_id: str, dataset_name: str,
     Args:
         preset_name (str): Name of the training preset.
         model_id (str): Identifier of the model to train.
-        dataset_name (str): Dataset to use for training (e.g., CLAPv2/MusicCaps).
+        dataset_id (str): Dataset to use for training (e.g., CLAPv2/MusicCaps).
         third_party_dir (str): Directory of the cloned third-party repository.
         checkpoint_dir (str): Directory containing model checkpoints.
         dataset_dir (str): Directory containing processed dataset (e.g., CLAPv2-MusicCaps).
@@ -188,7 +188,7 @@ def train_model(preset_name: str, model_id: str, dataset_name: str,
             train_cmd = [
                 'python', os.path.join(third_party_dir, 'dreambooth_musicgen.py'),
                 '--model_name_or_path', checkpoint_dir,
-                '--dataset_name', dataset_path,
+                '--dataset_id', dataset_path,
                 '--dataset_config_name', 'default',
                 '--target_audio_column_name', 'audio',
                 '--text_column_name', 'caption',
@@ -231,7 +231,7 @@ def train_model(preset_name: str, model_id: str, dataset_name: str,
             raise ValueError(f"No training command defined for preset {preset_name}")
 
         # Execute training command
-        logger.info(f"Training {model_id} with dataset {dataset_name} for preset {preset_name} at {dataset_path}, output to {output_model_dir}")
+        logger.info(f"Training {model_id} with dataset {dataset_id} for preset {preset_name} at {dataset_path}, output to {output_model_dir}")
         subprocess.run(train_cmd, check=True)
         logger.info(f"Completed training for {model_id} with preset {preset_name}")
 
@@ -319,18 +319,18 @@ def main():
     preset = training_config[0]  # Only one preset should match
     preset_name = preset.get('preset_name')
     model_id = preset.get('model_id')
-    dataset_name = preset.get('dataset')
+    dataset_id = preset.get('dataset')
     third_party_repo = preset.get('third_party')
     output_model_dir = preset.get('output_model_dir')
 
     # Validate preset completeness
-    if not all([preset_name, model_id, dataset_name, third_party_repo, output_model_dir]):
+    if not all([preset_name, model_id, dataset_id, third_party_repo, output_model_dir]):
         logger.error(f"Incomplete preset: {preset}")
         raise ValueError(f"Preset {preset_name} is missing required fields")
 
-    # Execute the pipeline with model_id and dataset_name
+    # Execute the pipeline with model_id and dataset_id
     execute_pipeline(base_model_only=args.base_model_only, finetune_only=args.finetune_only,
-                    model_id=model_id, dataset_name=dataset_name)
+                    model_id=model_id, dataset_id=dataset_id)
 
     # Get checkpoint information
     ckpt_info = get_checkpoint_info(model_id, ckpts_config)
@@ -350,17 +350,17 @@ def main():
         raise ValueError(f"Model {model_id} is not a fine-tuned model")
 
     # Get dataset local directory
-    dataset_dir = get_dataset_local_dir(dataset_name, datasets_config)
+    dataset_dir = get_dataset_local_dir(dataset_id, datasets_config)
     if not dataset_dir:
-        logger.error(f"Dataset {dataset_name} local directory not found for preset {preset_name}")
-        raise ValueError(f"Dataset {dataset_name} local directory not found")
+        logger.error(f"Dataset {dataset_id} local directory not found for preset {preset_name}")
+        raise ValueError(f"Dataset {dataset_id} local directory not found")
 
     # Derive third-party directory
     clone_dir = os.path.basename(third_party_repo).replace('.git', '')
     third_party_dir = os.path.join('src', 'third_party', clone_dir)
 
     # Train the model
-    train_model(preset_name, model_id, dataset_name, third_party_dir, 
+    train_model(preset_name, model_id, dataset_id, third_party_dir, 
                 checkpoint_dir, dataset_dir, output_model_dir)
     logger.info(f"Completed training for {model_id} with preset {preset_name}")
 
