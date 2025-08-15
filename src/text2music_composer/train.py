@@ -351,6 +351,7 @@ def main():
 
     # Get dataset local directory
     dataset_dir = get_dataset_local_dir(dataset_id, datasets_config)
+    dataset_dir= "data/CLAPv2-MusicCaps"
     if not dataset_dir:
         logger.error(f"Dataset {dataset_id} local directory not found for preset {preset_name}")
         raise ValueError(f"Dataset {dataset_id} local directory not found")
