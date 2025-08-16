@@ -23,8 +23,8 @@ data:
 
 step:
   validation_every_n_epochs: 5
-  save_checkpoint_every_n_steps: 40000
-  max_steps: 800000
+  save_checkpoint_every_n_steps: 100
+  max_steps: 200
   save_top_k: 2
 
 preprocessing:
