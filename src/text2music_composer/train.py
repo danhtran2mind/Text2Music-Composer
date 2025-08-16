@@ -168,7 +168,7 @@ def process_train_args(train_cmd: List[str], train_args: List[str]) -> List[str]
     Returns:
         List[str]: The updated training command with duplicates replaced and non-duplicates appended.
     """
-    new_cmd = []
+    # Parse train_args into a dictionary
     train_args_dict = {}
     i = 0
     while i < len(train_args):
@@ -180,22 +180,39 @@ def process_train_args(train_cmd: List[str], train_args: List[str]) -> List[str]
         else:
             i += 1
 
-    for i in range(len(train_cmd)):
+    # Process train_cmd, replacing values for duplicate keys and keeping first occurrence
+    new_cmd = []
+    seen_keys = set()
+    i = 0
+    while i < len(train_cmd):
         if train_cmd[i].startswith('-'):
             key = train_cmd[i]
-            if key in train_args_dict:
+            if key not in seen_keys:
+                seen_keys.add(key)
                 new_cmd.append(key)
-                if train_args_dict[key] is not None:
-                    new_cmd.append(train_args_dict[key])
-                del train_args_dict[key]
+                # Use value from train_args_dict if available, else use train_cmd's value
+                if key in train_args_dict:
+                    if train_args_dict[key] is not None:
+                        new_cmd.append(train_args_dict[key])
+                    # Remove processed key from train_args_dict
+                    del train_args_dict[key]
+                    # Skip the original value in train_cmd
+                    i += 2 if i + 1 < len(train_cmd) and not train_cmd[i + 1].startswith('-') else 1
+                else:
+                    # Keep original value from train_cmd
+                    if i + 1 < len(train_cmd) and not train_cmd[i + 1].startswith('-'):
+                        new_cmd.append(train_cmd[i + 1])
+                        i += 2
+                    else:
+                        i += 1
             else:
-                new_cmd.append(train_cmd[i])
-                if i + 1 < len(train_cmd) and not train_cmd[i + 1].startswith('-'):
-                    new_cmd.append(train_cmd[i + 1])
+                # Skip duplicate key and its value (if any)
+                i += 2 if i + 1 < len(train_cmd) and not train_cmd[i + 1].startswith('-') else 1
         else:
             new_cmd.append(train_cmd[i])
+            i += 1
 
-    # Append remaining train_args that were not duplicates
+    # Append remaining non-duplicate train_args
     for key, value in train_args_dict.items():
         new_cmd.append(key)
         if value is not None:
@@ -373,7 +390,8 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
             raise FileNotFoundError(f"Checkpoint directory {checkpoint_dir} not found")
 
         training_pipeline = get_training_pipeline(training_class)
-        train_cmd = training_pipeline.get_train_command(third_party_dir, checkpoint_dir, dataset_path, output_model_dir, train_args)
+        train_cmd = training_pipeline.get_train_command(third_party_dir, checkpoint_dir, 
+                                                        dataset_path, output_model_dir, train_args)
 
         logger.info(f"Training {model_id} with dataset {dataset_id} for preset {preset_name} at {dataset_path}, output to {output_model_dir}")
         subprocess.run(train_cmd, check=True)
