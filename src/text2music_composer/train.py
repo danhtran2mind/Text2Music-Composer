@@ -157,6 +157,52 @@ def get_checkpoint_info(model_id: str, ckpts_config: List[Dict[str, any]]) -> Op
     logger.warning(f"Model {model_id} not found in model_ckpts.yaml")
     return None
 
+def process_train_args(train_cmd: List[str], train_args: List[str]) -> List[str]:
+    """
+    Process train_args to replace duplicate arguments in train_cmd and append non-duplicates.
+
+    Args:
+        train_cmd (List[str]): The original training command list.
+        train_args (List[str]): Additional arguments to process, supporting both - and -- prefixes.
+
+    Returns:
+        List[str]: The updated training command with duplicates replaced and non-duplicates appended.
+    """
+    new_cmd = []
+    train_args_dict = {}
+    i = 0
+    while i < len(train_args):
+        if train_args[i].startswith('-'):
+            key = train_args[i]
+            value = train_args[i + 1] if i + 1 < len(train_args) and not train_args[i + 1].startswith('-') else None
+            train_args_dict[key] = value
+            i += 2 if value else 1
+        else:
+            i += 1
+
+    for i in range(len(train_cmd)):
+        if train_cmd[i].startswith('-'):
+            key = train_cmd[i]
+            if key in train_args_dict:
+                new_cmd.append(key)
+                if train_args_dict[key] is not None:
+                    new_cmd.append(train_args_dict[key])
+                del train_args_dict[key]
+            else:
+                new_cmd.append(train_cmd[i])
+                if i + 1 < len(train_cmd) and not train_cmd[i + 1].startswith('-'):
+                    new_cmd.append(train_cmd[i + 1])
+        else:
+            new_cmd.append(train_cmd[i])
+
+    # Append remaining train_args that were not duplicates
+    for key, value in train_args_dict.items():
+        new_cmd.append(key)
+        if value is not None:
+            new_cmd.append(value)
+
+    return new_cmd
+
 def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
                     model_id: Optional[str] = None, dataset_id: str = None,
                     processing_class: Optional[str] = None) -> None:
@@ -231,8 +277,7 @@ class AudioLDMTrainingPipeline(TrainingPipeline):
             '--wandb_off',
             '--accelerator', accelerator_device,
         ]
-        train_cmd.extend(train_args)
-        return train_cmd
+        return process_train_args(train_cmd, train_args)
 
 class MusicGenTrainingPipeline(TrainingPipeline):
     """Training pipeline for MusicGen."""
@@ -280,8 +325,7 @@ class MusicGenTrainingPipeline(TrainingPipeline):
             '--save_total_limit', '1',
             '--report_to', 'none'
         ]
-        train_cmd.extend(train_args)
-        return train_cmd
+        return process_train_args(train_cmd, train_args)
 
 def get_training_pipeline(training_class: str) -> TrainingPipeline:
     """Returns the appropriate training pipeline based on the training_class name."""
