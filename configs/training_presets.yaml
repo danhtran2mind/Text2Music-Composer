@@ -5,6 +5,7 @@
   output_model_dir: "ckpts/AudioLDM-finetuning/log"
   third_party: "https://github.com/danhtran2mind/Text2Audio-AudioLDM.git"
   processing_class: "AudioLDMamaailabMusicBenchProcessor"  # Updated from 'abc'
+  training_class: "AudioLDMTrainingPipeline"
 
 - preset_name:  "MusicGen-Small-MusicCaps-finetuning"
   model_id: "facebook/musicgen-small"
@@ -13,3 +14,4 @@
   output_model_dir: "ckpts/MusicGen-Small-MusicCaps-finetuning"
   third_party: "https://github.com/danhtran2mind/musicgen-dreamboothing.git"
   processing_class: "MusicGenCLAPv2MusicCapsProcessor"  # Updated from 'null'
+  training_class: "MusicGenTrainingPipeline" 

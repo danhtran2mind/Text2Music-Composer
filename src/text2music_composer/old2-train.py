@@ -47,12 +47,17 @@ class MusicGenCLAPv2MusicCapsProcessor(PipelineProcessor):
 
 def get_processor(processing_class: Optional[str]) -> PipelineProcessor:
     """Returns the appropriate processor based on the processing_class name."""
-    if processing_class == "AudioLDMamaailabMusicBenchProcessor":
-        return AudioLDMamaailabMusicBenchProcessor()
-    elif processing_class == "MusicGenCLAPv2MusicCapsProcessor":
-        return MusicGenCLAPv2MusicCapsProcessor()
+    if processing_class == "AudioLDMProcessor":
+        return AudioLDMProcessor()
+    elif processing_class == "MusicGenProcessor":
+        return MusicGenProcessor()
     else:
         raise ValueError(f"Unknown processing class: {processing_class}")
+
+# def run_pipeline_script(script_path: str, args: List[str]) -> None:
+#     """Runs a pipeline script with the given arguments."""
+#     # Placeholder for actual implementation
+#     logger.info(f"Running {script_path} with args: {args}")
 
 # ----------------------------------------------------------------------------#
 #                           FUNCTION DEFINITIONS                              #
@@ -159,7 +164,7 @@ def get_checkpoint_info(model_id: str, ckpts_config: List[Dict[str, any]]) -> Op
 
 def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
                     model_id: Optional[str] = None, dataset_id: str = None,
-                    processing_class: Optional[str] = None) -> None:
+                    processing_classs: Optional[str] = None) -> None:
     """
     Execute the prerequisite pipeline scripts in sequence with retry logic.
 
@@ -168,7 +173,7 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
         finetune_only (bool): If True, download only fine-tuned model checkpoints.
         model_id (Optional[str]): Model identifier to target specific checkpoint downloads.
         dataset_id (Optional[str]): Dataset name to target specific dataset downloads.
-        processing_class (Optional[str]): Processing class to process data and training config.
+        processing_classs (Optional[str]): Processing clase to process data and training config.
     Raises:
         ValueError: If both base_model_only and finetune_only are True.
         Exception: For other execution errors.
@@ -185,14 +190,26 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
         dataset_args = ['--dataset_id', dataset_id] if dataset_id else []
         run_pipeline_script(os.path.join('scripts', 'download_datasets.py'), dataset_args)
 
-        if processing_class:
+        # if processing_classs:
+        #     # Step 3: Run process_dataset.py with optional preset_name
+        #     preset_args = []
+        #     if model_id:
+        #         preset_name = 'AudioLDM-finetuning' if 'AudioLDM' in model_id else 'MusicGen-Small-MusicCaps-finetuning'
+        #         preset_args.extend(['--preset_name', preset_name])
+
+        #     run_pipeline_script(os.path.join('scripts', 'process_dataset.py'), preset_args)
+
+        #     run_pipeline_script(os.path.join('scripts', 'process_train_config.py'), preset_args)
+
+
+        if processing_classs:
             preset_args = []
             if model_id:
                 preset_name = 'AudioLDM-finetuning' if 'AudioLDM' in model_id else 'MusicGen-Small-MusicCaps-finetuning'
                 preset_args.extend(['--preset_name', preset_name])
 
             try:
-                processor = get_processor(processing_class)
+                processor = get_processor(processing_classs)
                 processor.process_dataset(preset_args)
                 processor.process_train_config(preset_args)
             except Exception as e:
@@ -213,89 +230,10 @@ def execute_pipeline(base_model_only: bool = False, finetune_only: bool = False,
         logger.error(f"Pipeline execution failed: {e}")
         raise
 
-class TrainingPipeline:
-    """Base class for training pipelines."""
-    def get_train_command(self, third_party_dir: str, checkpoint_dir: str, dataset_path: str, 
-                         output_model_dir: str, train_args: List[str]) -> List[str]:
-        raise NotImplementedError("Subclasses must implement get_train_command")
-
-class AudioLDMTrainingPipeline(TrainingPipeline):
-    """Training pipeline for AudioLDM."""
-    def get_train_command(self, third_party_dir: str, checkpoint_dir: str, dataset_path: str, 
-                         output_model_dir: str, train_args: List[str]) -> List[str]:
-        accelerator_device = 'gpu' if torch.cuda.is_available() else 'cpu'
-        train_cmd = [
-            'python', os.path.join(third_party_dir, 'src', 'audioldm', 'train.py'),
-            '--config_yaml', os.path.join('configs', 'AudioLDM_training_configs', 'audioldm_original.yaml'),
-            '--reload_from_ckpt', os.path.join(checkpoint_dir, 'audioldm-s-full.ckpt'),
-            '--wandb_off',
-            '--accelerator', accelerator_device,
-        ]
-        train_cmd.extend(train_args)
-        return train_cmd
-
-class MusicGenTrainingPipeline(TrainingPipeline):
-    """Training pipeline for MusicGen."""
-    def get_train_command(self, third_party_dir: str, checkpoint_dir: str, dataset_path: str, 
-                         output_model_dir: str, train_args: List[str]) -> List[str]:
-        train_cmd = [
-            'python', os.path.join(third_party_dir, 'dreambooth_musicgen.py'),
-            '--model_name_or_path', checkpoint_dir,
-            '--is_resume_from_checkpoint', 'false',
-            '--dataset_name', dataset_path,
-            '--dataset_config_name', 'default',
-            '--target_audio_column_name', 'audio',
-            '--text_column_name', 'caption',
-            '--train_split_name', 'train',
-            '--eval_split_name', 'train',
-            '--output_dir', output_model_dir,
-            '--do_train',
-            '--fp16',
-            '--num_train_epochs', '2',
-            '--gradient_accumulation_steps', '8',
-            '--gradient_checkpointing',
-            '--per_device_train_batch_size', '16',
-            '--learning_rate', '1e-5',
-            '--adam_beta1', '0.9',
-            '--adam_beta2', '0.99',
-            '--weight_decay', '0.1',
-            '--guidance_scale', '3.0',
-            '--do_eval',
-            '--predict_with_generate',
-            '--include_inputs_for_metrics',
-            '--eval_steps', '25',
-            '--per_device_eval_batch_size', '8',
-            '--max_eval_samples', '64',
-            '--generation_max_length', '400',
-            '--dataloader_num_workers', '8',
-            '--logging_steps', '1',
-            '--max_duration_in_seconds', '30',
-            '--min_duration_in_seconds', '1.0',
-            '--preprocessing_num_workers', '4',
-            '--pad_token_id', '2048',
-            '--decoder_start_token_id', '2048',
-            '--seed', '456',
-            '--overwrite_output_dir',
-            '--push_to_hub', 'false',
-            '--save_total_limit', '1',
-            '--report_to', 'none'
-        ]
-        train_cmd.extend(train_args)
-        return train_cmd
-
-def get_training_pipeline(training_class: str) -> TrainingPipeline:
-    """Returns the appropriate training pipeline based on the training_class name."""
-    if training_class == "AudioLDMTrainingPipeline":
-        return AudioLDMTrainingPipeline()
-    elif training_class == "MusicGenTrainingPipeline":
-        return MusicGenTrainingPipeline()
-    else:
-        raise ValueError(f"Unknown training class: {training_class}")
-
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
 def train_model(preset_name: str, model_id: str, dataset_id: str, 
                 third_party_dir: str, checkpoint_dir: str, dataset_dir: str, 
-                output_model_dir: str, training_class: str, train_args: List[str]) -> None:
+                output_model_dir: str) -> None:
     """
     Train a model using the specified dataset and third-party training script with retry logic.
 
@@ -307,8 +245,7 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
         checkpoint_dir (str): Directory containing model checkpoints.
         dataset_dir (str): Directory containing processed dataset.
         output_model_dir (str): Directory to save the trained model.
-        training_class (str): Class to define the training pipeline.
-        train_args (List[str]): Additional arguments to pass to the training command.
+        processing_classs (str): Class to process data and training config.
 
     Raises:
         FileNotFoundError: If required paths do not exist.
@@ -325,8 +262,61 @@ def train_model(preset_name: str, model_id: str, dataset_id: str,
             logger.error(f"Checkpoint directory {checkpoint_dir} does not exist")
             raise FileNotFoundError(f"Checkpoint directory {checkpoint_dir} not found")
 
-        training_pipeline = get_training_pipeline(training_class)
-        train_cmd = training_pipeline.get_train_command(third_party_dir, checkpoint_dir, dataset_path, output_model_dir, train_args)
+        if preset_name == 'AudioLDM-finetuning':
+            accelerator_device = 'gpu' if torch.cuda.is_available() else 'cpu'
+            train_cmd = [
+                'python', os.path.join(third_party_dir, 'src', 'audioldm', 'train.py'),
+                '--config_yaml', os.path.join('configs', 'AudioLDM_training_configs', 'audioldm_original.yaml'),
+                '--reload_from_ckpt', os.path.join(checkpoint_dir, 'audioldm-s-full.ckpt'),
+                '--wandb_off',
+                '--accelerator', accelerator_device,
+            ]
+        elif preset_name == 'MusicGen-Small-MusicCaps-finetuning':
+            train_cmd = [
+                'python', os.path.join(third_party_dir, 'dreambooth_musicgen.py'),
+                '--model_name_or_path', checkpoint_dir,
+                '--is_resume_from_checkpoint', 'false',
+                '--dataset_name', dataset_path,
+                '--dataset_config_name', 'default',
+                '--target_audio_column_name', 'audio',
+                '--text_column_name', 'caption',
+                '--train_split_name', 'train',
+                '--eval_split_name', 'train',
+                '--output_dir', output_model_dir,
+                '--do_train',
+                '--fp16',
+                '--num_train_epochs', '2',
+                '--gradient_accumulation_steps', '8',
+                '--gradient_checkpointing',
+                '--per_device_train_batch_size', '16',
+                '--learning_rate', '1e-5',
+                '--adam_beta1', '0.9',
+                '--adam_beta2', '0.99',
+                '--weight_decay', '0.1',
+                '--guidance_scale', '3.0',
+                '--do_eval',
+                '--predict_with_generate',
+                '--include_inputs_for_metrics',
+                '--eval_steps', '25',
+                '--per_device_eval_batch_size', '8',
+                '--max_eval_samples', '64',
+                '--generation_max_length', '400',
+                '--dataloader_num_workers', '8',
+                '--logging_steps', '1',
+                '--max_duration_in_seconds', '30',
+                '--min_duration_in_seconds', '1.0',
+                '--preprocessing_num_workers', '4',
+                '--pad_token_id', '2048',
+                '--decoder_start_token_id', '2048',
+                '--seed', '456',
+                '--overwrite_output_dir',
+                '--push_to_hub', 'false',
+                '--save_total_limit', '1',
+                '--report_to', 'none'
+            ]
+        else:
+            logger.error(f"Unsupported preset_name: {preset_name}")
+            raise ValueError(f"No training command defined for preset {preset_name}")
 
         logger.info(f"Training {model_id} with dataset {dataset_id} for preset {preset_name} at {dataset_path}, output to {output_model_dir}")
         subprocess.run(train_cmd, check=True)
@@ -348,6 +338,7 @@ def main():
         Exception: For configuration, pipeline, or training errors.
     """
     config_path = os.path.join('configs', 'training_presets.yaml')
+    # process_datasets_config_path = os.path.join('configs', 'process_datasets.yaml')
     try:
         training_config = load_config(config_path)
         preset_choices = [preset.get('preset_name') for preset in training_config if preset.get('preset_name')]
@@ -357,6 +348,12 @@ def main():
     except Exception as e:
         logger.error(f"Failed to load preset choices from {config_path}: {e}")
         raise
+
+    # try:
+    #     process_datasets_config = load_config(process_datasets_config_path)
+    # except Exception as e:
+    #     logger.error(f"Failed to load preset choices from {process_datasets_config}: {e}")
+    #     raise
 
     parser = argparse.ArgumentParser(description="Train a single text-to-music model based on the selected preset.")
     parser.add_argument(
@@ -387,11 +384,6 @@ def main():
         action='store_true',
         help='Download and train both base and fine-tuned models (default)'
     )
-    parser.add_argument(
-        'train_args',
-        nargs=argparse.REMAINDER,
-        help='Additional arguments to pass to the training command'
-    )
     args = parser.parse_args()
 
     if sum([args.base_model_only, args.finetune_only, args.both]) > 1:
@@ -417,14 +409,20 @@ def main():
         logger.error(f"No preset found with name {args.preset_name}. Available presets: {preset_choices}")
         raise ValueError(f"Preset {args.preset_name} not found in {args.config_path}")
     
+    # Process Datasets Config
+    # process_datasets_config = [preset for preset in process_datasets_config 
+    #                    if preset.get('preset_name').lower() == args.preset_name.lower()]
+    # preset_process_datasets= process_datasets_config[0]
+    # preset_name_process_datasets = preset_process_datasets.get('preset_name')
+    
+
     preset = training_config[0]
     preset_name = preset.get('preset_name')
     model_id = preset.get('model_id')
     dataset_id = preset.get('dataset_id')
     third_party_repo = preset.get('third_party')
     output_model_dir = preset.get('output_model_dir')
-    processing_class = preset.get('processing_class')
-    training_class = preset.get('training_class')
+    processing_classs = preset.get('processing_classs')
 
     if not all([preset_name, model_id, dataset_id, third_party_repo, output_model_dir]):
         logger.error(f"Incomplete preset: {preset}")
@@ -432,7 +430,7 @@ def main():
 
     execute_pipeline(base_model_only=args.base_model_only, finetune_only=args.finetune_only,
                     model_id=model_id, dataset_id=dataset_id, 
-                    processing_class=processing_class)
+                    processing_classs=processing_classs)
 
     ckpt_info = get_checkpoint_info(model_id, ckpts_config)
     if not ckpt_info:
@@ -449,7 +447,7 @@ def main():
         logger.error(f"Model {model_id} for preset {preset_name} is not a fine-tuned model")
         raise ValueError(f"Model {model_id} is not a fine-tuned model")
 
-    if processing_class:
+    if processing_classs:
         dataset_dir = get_dataset_processed_data_dir(dataset_id, datasets_config)
     else:
         dataset_dir = get_dataset_local_dir(dataset_id, datasets_config)
@@ -463,7 +461,7 @@ def main():
     third_party_dir = os.path.join('src', 'third_party', clone_dir)
 
     train_model(preset_name, model_id, dataset_id, third_party_dir, 
-                checkpoint_dir, dataset_dir, output_model_dir, training_class, args.train_args)
+                checkpoint_dir, dataset_dir, output_model_dir)
 
 if __name__ == "__main__":
     main()
