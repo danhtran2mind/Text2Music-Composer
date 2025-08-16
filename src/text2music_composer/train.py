@@ -494,7 +494,7 @@ def main():
         raise ValueError(f"Model {model_id} is not a fine-tuned model")
 
     if processing_class:
-        dataset_dir = get_dataset_processed_data_dir(dataset_id, datasets_config)
+        dataset_dir = get_dataset_processed_data_dir(dataset_id, training_config)
     else:
         dataset_dir = get_dataset_local_dir(dataset_id, datasets_config)
 
