@@ -277,7 +277,10 @@ class AudioLDMTrainingPipeline(TrainingPipeline):
             '--wandb_off',
             '--accelerator', accelerator_device,
         ]
-        return process_train_args(train_cmd, train_args)
+
+        new_train_cmd =  process_train_args(train_cmd, train_args)
+        print("=" * 10, "New train command: ", new_train_cmd, "=" * 10)
+        return new_train_cmd#process_train_args(train_cmd, train_args)
 
 class MusicGenTrainingPipeline(TrainingPipeline):
     """Training pipeline for MusicGen."""
